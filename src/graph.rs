@@ -1,11 +1,13 @@
 use atoi::FromRadix10;
-use std::{collections::HashMap, convert::TryFrom, io::Read};
+use std::{
+    collections::HashMap, convert::TryFrom, fs::File, io::Read, path::PathBuf, time::Instant,
+};
 
 use crate::Result;
 
 use linereader::LineReader;
 
-pub(crate) struct Graph {
+pub struct Graph {
     node_count: usize,
     relationship_count: usize,
     label_count: usize,
@@ -215,6 +217,18 @@ where
 
         Ok(graph)
     }
+}
+
+pub fn parse(path: PathBuf) -> Result<Graph> {
+    println!("Reading from: {:?}", path);
+    let start = Instant::now();
+    let file = File::open(path)?;
+    println!("Preparing input: {:?}", start.elapsed());
+    let start = Instant::now();
+    let graph = Graph::try_from(LineReader::new(file))?;
+    println!("Parsing graph: {:?}", start.elapsed());
+
+    Ok(graph)
 }
 
 #[cfg(test)]

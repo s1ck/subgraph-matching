@@ -3,6 +3,7 @@ name = "subgraph-matching"
 version = "0.1.0"
 authors = ["Martin Junghanns <nerdfaktor42@mailbox.org>"]
 edition = "2018"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,6 +11,7 @@ edition = "2018"
 atoi = "0.4.0"
 eyre = "0.6.5"
 linereader = "0.4.0"
+pico-args = "0.4.0"
 
 [dev-dependencies]
 trim-margin = "0.1.0"
