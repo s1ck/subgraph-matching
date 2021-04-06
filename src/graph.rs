@@ -1,7 +1,7 @@
 use atoi::FromRadix10;
 use std::{
     collections::HashMap, convert::TryFrom, fmt::Display, fs::File, io::Read, path::PathBuf,
-    time::Instant,
+    str::FromStr, time::Instant,
 };
 
 use crate::Result;
@@ -80,6 +80,16 @@ impl Display for Graph {
             self.max_degree,
             self.max_label_frequency
         )
+    }
+}
+
+impl FromStr for Graph {
+    type Err = eyre::Report;
+
+    fn from_str(input: &str) -> Result<Self> {
+        let reader = LineReader::new(input.as_bytes());
+        let parse_graph = ParseGraph::try_from(reader)?;
+        Ok(Graph::from(parse_graph))
     }
 }
 
@@ -289,7 +299,7 @@ mod tests {
 
     #[test]
     fn read_from_slice() {
-        let str = "
+        let graph = "
         |t 5 6
         |v 0 0 2
         |v 1 1 3
@@ -306,9 +316,7 @@ mod tests {
         .trim_margin()
         .unwrap();
 
-        let reader = LineReader::new(str.as_str().as_bytes());
-
-        let graph = Graph::from(ParseGraph::try_from(reader).unwrap());
+        let graph = graph.parse::<Graph>().unwrap();
 
         assert_eq!(graph.node_count(), 5);
         assert_eq!(graph.relationship_count(), 6);
