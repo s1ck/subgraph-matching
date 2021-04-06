@@ -294,7 +294,6 @@ pub fn parse(path: PathBuf) -> Result<Graph> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use trim_margin::MarginTrimmable;
 
     #[test]

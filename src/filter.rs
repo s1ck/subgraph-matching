@@ -72,3 +72,50 @@ impl Candidates {
         self.candidates_count[query_node]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use trim_margin::MarginTrimmable;
+
+    #[test]
+    fn test_ldf_filter() {
+        let data_graph = "
+        |t 5 6
+        |v 0 0 2
+        |v 1 1 3
+        |v 2 2 3
+        |v 3 1 2
+        |v 4 3 2
+        |e 0 1
+        |e 0 2
+        |e 1 2
+        |e 1 3
+        |e 2 4
+        |e 3 4
+        |"
+        .trim_margin()
+        .unwrap();
+
+        let query_graph = "
+        |t 3 2
+        |v 0 0 1
+        |v 1 1 1
+        |v 2 2 0
+        |e 0 1
+        |e 1 2
+        |"
+        .trim_margin()
+        .unwrap();
+
+        let data_graph = data_graph.parse::<Graph>().unwrap();
+        let query_graph = query_graph.parse::<Graph>().unwrap();
+
+        let candidates = ldf_filter(&data_graph, &query_graph).unwrap();
+
+        assert_eq!(candidates.candidates[0], &[0]);
+        assert_eq!(candidates.candidates[1], &[1, 3]);
+        assert_eq!(candidates.candidates[2], &[2]);
+        assert_eq!(candidates.candidates_count, &[1, 2, 1]);
+    }
+}
