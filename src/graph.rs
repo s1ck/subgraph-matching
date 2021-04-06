@@ -68,7 +68,18 @@ impl Graph {
     }
 }
 
-impl<R> TryFrom<LineReader<R>> for Graph
+struct ParseGraph {
+    node_count: usize,
+    relationship_count: usize,
+    labels: Vec<usize>,
+    offsets: Vec<usize>,
+    neighbors: Vec<usize>,
+    max_degree: usize,
+    max_label: usize,
+    label_frequency: HashMap<usize, usize>,
+}
+
+impl<R> TryFrom<LineReader<R>> for ParseGraph
 where
     R: Read,
 {
@@ -91,7 +102,6 @@ where
 
         offsets.push(0);
 
-        let mut labels_count = 0;
         let mut max_degree = 0;
         let mut max_label = 0;
         let mut label_frequency = HashMap::<usize, usize>::new();
@@ -128,7 +138,6 @@ where
                 if label > max_label {
                     max_label = label;
                 }
-                labels_count += 1;
                 0
             });
             *frequency += 1;
@@ -165,6 +174,32 @@ where
             next_offset[target] += 1;
         }
 
+        Ok(Self {
+            node_count,
+            relationship_count,
+            labels,
+            offsets,
+            neighbors,
+            max_degree,
+            max_label,
+            label_frequency,
+        })
+    }
+}
+
+impl From<ParseGraph> for Graph {
+    fn from(parse_graph: ParseGraph) -> Self {
+        let ParseGraph {
+            node_count,
+            relationship_count,
+            labels,
+            offsets,
+            mut neighbors,
+            max_degree,
+            max_label,
+            label_frequency,
+        } = parse_graph;
+
         // sort adjacency lists
         for node in 0..node_count {
             let from = offsets[node];
@@ -200,7 +235,7 @@ where
             reverse_index_offsets[label + 1] += 1;
         }
 
-        let graph = Self {
+        Self {
             node_count,
             relationship_count,
             label_count,
@@ -213,9 +248,7 @@ where
             max_label,
             max_label_frequency,
             label_frequency,
-        };
-
-        Ok(graph)
+        }
     }
 }
 
@@ -225,9 +258,11 @@ pub fn parse(path: PathBuf) -> Result<Graph> {
     let file = File::open(path)?;
     println!("Preparing input: {:?}", start.elapsed());
     let start = Instant::now();
-    let graph = Graph::try_from(LineReader::new(file))?;
+    let parse_graph = ParseGraph::try_from(LineReader::new(file))?;
     println!("Parsing graph: {:?}", start.elapsed());
-
+    let start = Instant::now();
+    let graph = Graph::from(parse_graph);
+    println!("Building graph: {:?}", start.elapsed());
     Ok(graph)
 }
 
@@ -258,7 +293,7 @@ mod tests {
 
         let reader = LineReader::new(str.as_str().as_bytes());
 
-        let graph = Graph::try_from(reader).unwrap();
+        let graph = Graph::from(ParseGraph::try_from(reader).unwrap());
 
         assert_eq!(graph.node_count(), 5);
         assert_eq!(graph.relationship_count(), 6);
