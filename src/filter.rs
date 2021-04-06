@@ -64,25 +64,23 @@ mod tests {
     use super::*;
     use trim_margin::MarginTrimmable;
 
-    #[test]
-    fn test_ldf_filter() {
-        let data_graph = "
+    const TEST_GRAPH: &str = "
         |t 5 6
         |v 0 0 2
         |v 1 1 3
         |v 2 2 3
         |v 3 1 2
-        |v 4 3 2
+        |v 4 4 2
         |e 0 1
         |e 0 2
         |e 1 2
         |e 1 3
         |e 2 4
         |e 3 4
-        |"
-        .trim_margin()
-        .unwrap();
+        |";
 
+    #[test]
+    fn test_ldf_filter() {
         let query_graph = "
         |t 3 2
         |v 0 0 1
@@ -94,7 +92,7 @@ mod tests {
         .trim_margin()
         .unwrap();
 
-        let data_graph = data_graph.parse::<Graph>().unwrap();
+        let data_graph = TEST_GRAPH.trim_margin().unwrap().parse::<Graph>().unwrap();
         let query_graph = query_graph.parse::<Graph>().unwrap();
 
         let candidates = ldf_filter(&data_graph, &query_graph).unwrap();
@@ -106,5 +104,49 @@ mod tests {
         assert_eq!(candidates.candidate_count(0), 1);
         assert_eq!(candidates.candidate_count(1), 2);
         assert_eq!(candidates.candidate_count(2), 1);
+    }
+
+    #[test]
+    fn test_ldf_filter_invalid_label() {
+        let query_graph = "
+        |t 3 2
+        |v 0 3 1
+        |v 1 1 1
+        |v 2 2 1
+        |e 0 1
+        |e 1 2
+        |"
+        .trim_margin()
+        .unwrap();
+
+        let data_graph = TEST_GRAPH.trim_margin().unwrap().parse::<Graph>().unwrap();
+        let query_graph = query_graph.parse::<Graph>().unwrap();
+
+        let candidates = ldf_filter(&data_graph, &query_graph);
+
+        assert!(candidates.is_none())
+    }
+
+    #[test]
+    fn test_ldf_filter_invalid_degree() {
+        let query_graph = "
+        |t 3 4
+        |v 0 3 3
+        |v 1 1 1
+        |v 2 2 3
+        |e 0 1
+        |e 0 2
+        |e 0 2
+        |e 1 2
+        |"
+        .trim_margin()
+        .unwrap();
+
+        let data_graph = TEST_GRAPH.trim_margin().unwrap().parse::<Graph>().unwrap();
+        let query_graph = query_graph.parse::<Graph>().unwrap();
+
+        let candidates = ldf_filter(&data_graph, &query_graph);
+
+        assert!(candidates.is_none())
     }
 }
