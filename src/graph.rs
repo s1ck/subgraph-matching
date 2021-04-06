@@ -1,6 +1,7 @@
 use atoi::FromRadix10;
 use std::{
-    collections::HashMap, convert::TryFrom, fs::File, io::Read, path::PathBuf, time::Instant,
+    collections::HashMap, convert::TryFrom, fmt::Display, fs::File, io::Read, path::PathBuf,
+    time::Instant,
 };
 
 use crate::Result;
@@ -65,6 +66,20 @@ impl Graph {
 
     pub fn max_label_frequency(&self) -> usize {
         self.max_label_frequency
+    }
+}
+
+impl Display for Graph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "|V|: {}, |E|: {}, |Σ|: {}\nMax Degree: {}, Max Label Frequency: {}",
+            self.node_count,
+            self.relationship_count,
+            self.label_count,
+            self.max_degree,
+            self.max_label_frequency
+        )
     }
 }
 
