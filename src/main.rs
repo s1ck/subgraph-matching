@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 mod cli;
+mod filter;
 mod graph;
 
 use eyre::Result;
