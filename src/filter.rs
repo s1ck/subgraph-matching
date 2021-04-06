@@ -28,17 +28,12 @@ fn ldf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
 struct Candidates {
     /// candidates for each query node
     candidates: Box<[Vec<usize>]>,
-    // number of candidates for each query node
-    candidates_count: Vec<usize>,
 }
 
 impl Candidates {
     fn new(data_graph: &Graph, query_graph: &Graph) -> Self {
         let query_node_count = query_graph.node_count();
         let max_candidates = data_graph.max_label_frequency();
-
-        let mut candidates_count = Vec::with_capacity(query_node_count);
-        candidates_count.resize(query_node_count, 0);
 
         let mut candidates = Vec::with_capacity(query_node_count);
 
@@ -48,28 +43,19 @@ impl Candidates {
 
         Self {
             candidates: candidates.into_boxed_slice(),
-            candidates_count,
         }
-    }
-
-    fn is_valid(&self) -> bool {
-        let query_node_count = self.candidates_count.len();
-
-        for i in 0..query_node_count {
-            if self.candidates_count[i] == 0 {
-                return false;
-            }
-        }
-        return true;
     }
 
     fn add_candidate(&mut self, query_node: usize, data_node: usize) {
         self.candidates[query_node].push(data_node);
-        self.candidates_count[query_node] += 1;
+    }
+
+    fn candidates(&self, data_node: usize) -> &[usize] {
+        self.candidates[data_node].as_slice()
     }
 
     fn candidate_count(&self, query_node: usize) -> usize {
-        self.candidates_count[query_node]
+        self.candidates[query_node].len()
     }
 }
 
@@ -113,9 +99,12 @@ mod tests {
 
         let candidates = ldf_filter(&data_graph, &query_graph).unwrap();
 
-        assert_eq!(candidates.candidates[0], &[0]);
-        assert_eq!(candidates.candidates[1], &[1, 3]);
-        assert_eq!(candidates.candidates[2], &[2]);
-        assert_eq!(candidates.candidates_count, &[1, 2, 1]);
+        assert_eq!(candidates.candidates(0), &[0]);
+        assert_eq!(candidates.candidates(1), &[1, 3]);
+        assert_eq!(candidates.candidates(2), &[2]);
+
+        assert_eq!(candidates.candidate_count(0), 1);
+        assert_eq!(candidates.candidate_count(1), 2);
+        assert_eq!(candidates.candidate_count(2), 1);
     }
 }
