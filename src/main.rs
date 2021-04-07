@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     println!("------");
     println!("Generate a matching order...");
 
-    let order = order::gql_order(&data_graph, &query_graph, &candidates);
+    let _order = order::gql_order(&data_graph, &query_graph, &candidates);
 
     println!("------");
 

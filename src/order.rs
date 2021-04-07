@@ -25,7 +25,7 @@ pub fn gql_order(
         let mut next_node = usize::MAX;
         let mut min_value = data_graph.node_count() + 1;
 
-        for curr_node in 1..node_count {
+        for curr_node in 0..node_count {
             if !visited[curr_node] && adjacent[curr_node] {
                 let num_candidates = candidates.candidate_count(curr_node);
 
@@ -127,5 +127,22 @@ mod tests {
         let order = gql_order(&data_graph, &query_graph, &candidates);
 
         assert_eq!(order, vec![0, 2, 1]);
+    }
+
+    #[test]
+    fn test_gql_order_same_graph() {
+        let data_graph = TEST_GRAPH.trim_margin().unwrap().parse::<Graph>().unwrap();
+        let query_graph = TEST_GRAPH.trim_margin().unwrap().parse::<Graph>().unwrap();
+        let candidates = ldf_filter(&data_graph, &query_graph).unwrap();
+
+        assert_eq!(candidates.candidates(0), &[0]);
+        assert_eq!(candidates.candidates(1), &[1]);
+        assert_eq!(candidates.candidates(2), &[2]);
+        assert_eq!(candidates.candidates(3), &[1, 3]);
+        assert_eq!(candidates.candidates(4), &[4]);
+
+        let order = gql_order(&data_graph, &query_graph, &candidates);
+
+        assert_eq!(order, vec![1, 2, 0, 4, 3]);
     }
 }
