@@ -2,6 +2,7 @@
 mod cli;
 mod filter;
 mod graph;
+mod order;
 
 use eyre::Result;
 
@@ -22,7 +23,15 @@ fn main() -> Result<()> {
     println!("Filter candidates...");
 
     let mut candidates = filter::ldf_filter(&data_graph, &query_graph).unwrap_or_default();
+    // sorting candidates to support set intersection
     candidates.sort();
+
+    println!("------");
+    println!("Generate a matching order...");
+
+    let order = order::gql_order(&data_graph, &query_graph, &candidates);
+
+    println!("------");
 
     Ok(())
 }

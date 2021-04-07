@@ -25,7 +25,7 @@ pub(crate) fn ldf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Cand
     Some(candidates)
 }
 #[derive(Debug, Default)]
-pub(crate) struct Candidates {
+pub struct Candidates {
     /// candidates for each query node
     candidates: Box<[Vec<usize>]>,
 }
@@ -96,8 +96,8 @@ mod tests {
         let query_graph = "
         |t 3 2
         |v 0 0 1
-        |v 1 1 1
-        |v 2 2 0
+        |v 1 1 2
+        |v 2 2 1
         |e 0 1
         |e 1 2
         |"
@@ -123,7 +123,7 @@ mod tests {
         let query_graph = "
         |t 3 2
         |v 0 3 1
-        |v 1 1 1
+        |v 1 1 2
         |v 2 2 1
         |e 0 1
         |e 1 2
@@ -144,8 +144,8 @@ mod tests {
         let query_graph = "
         |t 3 4
         |v 0 3 3
-        |v 1 1 1
-        |v 2 2 3
+        |v 1 1 2
+        |v 2 2 1
         |e 0 1
         |e 0 2
         |e 0 2
