@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::graph::Graph;
 
 // label-and-degree filtering
@@ -68,6 +70,19 @@ impl From<(&Graph, &Graph)> for Candidates {
         }
 
         Self::new(candidates)
+    }
+}
+
+impl Display for Candidates {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let counts = self
+            .candidates
+            .iter()
+            .enumerate()
+            .map(|(n, c)| format!("{}: {}", n, c.len()))
+            .collect::<Vec<_>>();
+
+        write!(f, "{}", counts.join(", "))
     }
 }
 

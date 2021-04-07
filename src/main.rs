@@ -25,11 +25,13 @@ fn main() -> Result<()> {
     let mut candidates = filter::ldf_filter(&data_graph, &query_graph).unwrap_or_default();
     // sorting candidates to support set intersection
     candidates.sort();
+    println!("candidate counts: {} ", candidates);
 
     println!("------");
     println!("Generate a matching order...");
 
-    let _order = order::gql_order(&data_graph, &query_graph, &candidates);
+    let order = order::gql_order(&data_graph, &query_graph, &candidates);
+    println!("matching order: {:?}", order);
 
     println!("------");
 
