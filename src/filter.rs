@@ -1,8 +1,8 @@
 use crate::graph::Graph;
 
 // label-and-degree filtering
-fn ldf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
-    let mut candidates = Candidates::new(data_graph, query_graph);
+pub(crate) fn ldf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
+    let mut candidates = Candidates::from((data_graph, query_graph));
 
     for query_node in 0..query_graph.node_count() {
         let label = query_graph.label(query_node);
@@ -24,14 +24,40 @@ fn ldf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
 
     Some(candidates)
 }
-
-struct Candidates {
+#[derive(Debug, Default)]
+pub(crate) struct Candidates {
     /// candidates for each query node
     candidates: Box<[Vec<usize>]>,
 }
 
 impl Candidates {
-    fn new(data_graph: &Graph, query_graph: &Graph) -> Self {
+    pub fn new(candidates: Vec<Vec<usize>>) -> Self {
+        Self {
+            candidates: candidates.into_boxed_slice(),
+        }
+    }
+
+    pub fn add_candidate(&mut self, query_node: usize, data_node: usize) {
+        self.candidates[query_node].push(data_node);
+    }
+
+    pub fn candidates(&self, data_node: usize) -> &[usize] {
+        self.candidates[data_node].as_slice()
+    }
+
+    pub fn candidate_count(&self, query_node: usize) -> usize {
+        self.candidates[query_node].len()
+    }
+
+    pub fn sort(&mut self) {
+        for c in self.candidates.iter_mut() {
+            c.sort()
+        }
+    }
+}
+
+impl From<(&Graph, &Graph)> for Candidates {
+    fn from((data_graph, query_graph): (&Graph, &Graph)) -> Self {
         let query_node_count = query_graph.node_count();
         let max_candidates = data_graph.max_label_frequency();
 
@@ -41,21 +67,7 @@ impl Candidates {
             candidates.push(Vec::<usize>::with_capacity(max_candidates));
         }
 
-        Self {
-            candidates: candidates.into_boxed_slice(),
-        }
-    }
-
-    fn add_candidate(&mut self, query_node: usize, data_node: usize) {
-        self.candidates[query_node].push(data_node);
-    }
-
-    fn candidates(&self, data_node: usize) -> &[usize] {
-        self.candidates[data_node].as_slice()
-    }
-
-    fn candidate_count(&self, query_node: usize) -> usize {
-        self.candidates[query_node].len()
+        Self::new(candidates)
     }
 }
 
@@ -148,5 +160,17 @@ mod tests {
         let candidates = ldf_filter(&data_graph, &query_graph);
 
         assert!(candidates.is_none())
+    }
+
+    #[test]
+    fn test_candidates_sorting() {
+        let input = vec![vec![4, 2], vec![1, 7, 3, 3], vec![0]];
+        let mut candidates = Candidates::new(input);
+
+        candidates.sort();
+
+        assert_eq!(candidates.candidates(0), &[2, 4]);
+        assert_eq!(candidates.candidates(1), &[1, 3, 3, 7]);
+        assert_eq!(candidates.candidates(2), &[0]);
     }
 }

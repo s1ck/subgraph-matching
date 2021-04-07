@@ -19,6 +19,10 @@ fn main() -> Result<()> {
     println!("Data Graph Meta Information:\n{}", data_graph);
 
     println!("------");
+    println!("Filter candidates...");
+
+    let mut candidates = filter::ldf_filter(&data_graph, &query_graph).unwrap_or_default();
+    candidates.sort();
 
     Ok(())
 }
