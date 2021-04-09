@@ -46,6 +46,10 @@ impl Graph {
         &self.neighbors[from..to]
     }
 
+    pub fn exists(&self, source: usize, target: usize) -> bool {
+        self.neighbors(source).binary_search(&target).is_ok()
+    }
+
     pub fn nodes_by_label(&self, label: usize) -> &[usize] {
         let from = self.reverse_index_offsets[label];
         let to = self.reverse_index_offsets[label + 1];
@@ -342,6 +346,12 @@ mod tests {
         assert_eq!(graph.neighbors(2), &[0, 1, 4]);
         assert_eq!(graph.neighbors(3), &[1, 4]);
         assert_eq!(graph.neighbors(4), &[2, 3]);
+
+        assert!(graph.exists(0, 1));
+        assert!(graph.exists(0, 2));
+        assert!(!graph.exists(0, 3));
+        assert!(graph.exists(3, 4));
+        assert!(!graph.exists(3, 2));
 
         assert_eq!(graph.nodes_by_label(0), &[0]);
         assert_eq!(graph.nodes_by_label(1), &[1, 3]);

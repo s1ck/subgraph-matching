@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 mod cli;
+mod enumerate;
 mod filter;
 mod graph;
 mod order;
@@ -34,6 +35,11 @@ fn main() -> Result<()> {
     println!("matching order: {:?}", order);
 
     println!("------");
+    println!("Enumerate");
+
+    let embedding_count = enumerate::gql(&data_graph, &query_graph, &candidates, &order);
+
+    println!("Embedding count = {}", embedding_count);
 
     Ok(())
 }
