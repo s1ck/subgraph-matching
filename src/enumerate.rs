@@ -21,25 +21,37 @@ where
 {
     let mut embedding_count = 0;
 
+    // Stores the neighbors for each query node that have already been visited
+    // according to the defined order.
     let visited_neighbors = visited_neighbors(query_graph, order);
 
+    // The root of the traversal.
     let start_node = order[0];
-    let mut cur_depth = 0;
     let max_depth = query_graph.node_count();
 
     // TODO bit set?
+    // Tracks which data node has already been visited during the traversal.
     let mut visited = vec![false; data_graph.node_count()];
 
+    // Represents the valid next candidates out of the possible candidates for each depth.
+    // For depth 0, this is equivalent to the candidates of query node at order[0].
     let mut valid_candidates = Vec::with_capacity(max_depth);
-    // TODO: avoid copy from slice (this array is never updated)
+    // TODO: can we avoid copying from slice (this array is never updated)
     valid_candidates.push(Vec::from(candidates.candidates(start_node)));
     for u in order[1..].iter() {
+        // We pre-allocate the vec with the number of candidates since we can't
+        // know how many of them will be valid neighbors according to the query.
         valid_candidates.push(vec![0; candidates.candidate_count(*u)]);
     }
 
+    // Idx tracks the currently processed candidate at each depth.
     let mut idx = vec![0 as usize; max_depth];
+    // Idx_count tracks the number of valid candidates at each depth.
     let mut idx_count = vec![0 as usize; max_depth];
+    // Stores the mapping between query and data nodes according to order.
     let mut embedding = vec![0 as usize; max_depth];
+
+    let mut cur_depth = 0;
 
     idx[cur_depth] = 0;
     idx_count[cur_depth] = candidates.candidate_count(start_node);
@@ -55,10 +67,11 @@ where
 
             if cur_depth == max_depth - 1 {
                 embedding_count += 1;
-                action(&embedding);
                 visited[v] = false;
+                action(&embedding);
                 // TODO output limit
             } else {
+                // Go down into the rabbit hole.
                 cur_depth += 1;
                 idx[cur_depth] = 0;
 
@@ -130,6 +143,11 @@ fn generate_valid_candidates(
         if !visited[*v] {
             let mut valid = true;
 
+            // Visited neighbors contains the adjacent query nodes that
+            // we already evaluated and mapped to a data node. We need
+            // to make sure that for each relationship to those neighbors
+            // there exists a relationship in the data graph that points
+            // to the candidate node v.
             for u_nbr in &visited_neighbors[depth][..] {
                 let u_nbr_v = embedding[*u_nbr];
 
@@ -139,6 +157,9 @@ fn generate_valid_candidates(
                 }
             }
 
+            // We could successfully map each relationship from the query
+            // graph to a relationship in the data graph that ends in v.
+            // Therefore, v is a validate candidate for the current depth.
             if valid {
                 valid_candidates[depth][idx_count[depth]] = *v;
                 idx_count[depth] += 1;
