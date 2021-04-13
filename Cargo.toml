@@ -10,6 +10,7 @@ license = "MIT"
 [dependencies]
 atoi = "0.4.0"
 eyre = "0.6.5"
+gdl = "0.2.4"
 linereader = "0.4.0"
 pico-args = "0.4.0"
 

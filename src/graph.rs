@@ -1,7 +1,8 @@
 use atoi::FromRadix10;
+use std::fmt::Write;
 use std::{
-    collections::HashMap, convert::TryFrom, fmt::Display, fs::File, io::Read, path::PathBuf,
-    str::FromStr, time::Instant,
+    collections::HashMap, convert::TryFrom, fmt::Display, fs::File, io::Read, ops::Deref,
+    path::PathBuf, str::FromStr, time::Instant,
 };
 
 use crate::Result;
@@ -215,8 +216,8 @@ where
 }
 
 impl From<ParseGraph> for Graph {
-    fn from(parse_graph: ParseGraph) -> Self {
-        let ParseGraph {
+    fn from(
+        ParseGraph {
             node_count,
             relationship_count,
             labels,
@@ -225,8 +226,8 @@ impl From<ParseGraph> for Graph {
             max_degree,
             max_label,
             label_frequency,
-        } = parse_graph;
-
+        }: ParseGraph,
+    ) -> Self {
         // sort adjacency lists
         for node in 0..node_count {
             let from = offsets[node];
@@ -278,6 +279,83 @@ impl From<ParseGraph> for Graph {
     }
 }
 
+struct GdlGraph(Graph);
+
+impl Deref for GdlGraph {
+    type Target = Graph;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl FromStr for GdlGraph {
+    type Err = eyre::Report;
+
+    fn from_str(gdl: &str) -> Result<Self> {
+        fn degree(gdl_graph: &gdl::Graph, node: &gdl::graph::Node) -> usize {
+            let mut degree = 0;
+
+            for rel in gdl_graph.relationships() {
+                if rel.source() == node.variable() {
+                    degree += 1;
+                }
+                if rel.target() == node.variable() {
+                    degree += 1;
+                }
+            }
+            degree
+        }
+
+        let gdl_graph = gdl.parse::<gdl::Graph>().unwrap();
+
+        let header = format!(
+            "t {} {}",
+            gdl_graph.node_count(),
+            gdl_graph.relationship_count()
+        );
+
+        let mut nodes_string = String::from("");
+
+        let mut sorted_nodes = gdl_graph.nodes().collect::<Vec<_>>();
+        sorted_nodes.sort_by_key(|node| node.id());
+
+        for node in sorted_nodes {
+            let id = node.id();
+            let label = node.labels().next().expect("Single label expected");
+            let degree = degree(&gdl_graph, node);
+            let _ = write!(nodes_string, "v {} {} {}\n", id, &label[1..], degree);
+        }
+
+        let mut rels_string = String::from("");
+
+        let mut sorted_rels = gdl_graph.relationships().collect::<Vec<_>>();
+        sorted_rels.sort_by_key(|rel| (rel.source(), rel.target()));
+
+        for rel in sorted_rels {
+            let source_id = gdl_graph
+                .get_node(rel.source())
+                .expect("Source expected")
+                .id();
+            let target_id = gdl_graph
+                .get_node(rel.target())
+                .expect("Target expected")
+                .id();
+            let _ = write!(rels_string, "e {} {}\n", source_id, target_id);
+        }
+
+        let input = format!("{}\n{}{}", header, nodes_string, rels_string);
+
+        println!("{}", input);
+
+        let graph = format!("{}\n{}{}", header, nodes_string, rels_string)
+            .parse::<Graph>()
+            .unwrap();
+
+        Ok(GdlGraph(graph))
+    }
+}
+
 pub fn parse(path: PathBuf) -> Result<Graph> {
     println!("Reading from: {:?}", path);
     let start = Instant::now();
@@ -317,6 +395,63 @@ mod tests {
         .unwrap();
 
         let graph = graph.parse::<Graph>().unwrap();
+
+        assert_eq!(graph.node_count(), 5);
+        assert_eq!(graph.relationship_count(), 6);
+        assert_eq!(graph.label_count(), 3);
+
+        assert_eq!(graph.max_label(), 2);
+        assert_eq!(graph.max_degree(), 3);
+        assert_eq!(graph.max_label_frequency(), 2);
+
+        assert_eq!(graph.label(0), 0);
+        assert_eq!(graph.label(1), 1);
+        assert_eq!(graph.label(2), 2);
+        assert_eq!(graph.label(3), 1);
+        assert_eq!(graph.label(4), 2);
+
+        assert_eq!(graph.degree(0), 2);
+        assert_eq!(graph.degree(1), 3);
+        assert_eq!(graph.degree(2), 3);
+        assert_eq!(graph.degree(3), 2);
+        assert_eq!(graph.degree(4), 2);
+
+        assert_eq!(graph.neighbors(0), &[1, 2]);
+        assert_eq!(graph.neighbors(1), &[0, 2, 3]);
+        assert_eq!(graph.neighbors(2), &[0, 1, 4]);
+        assert_eq!(graph.neighbors(3), &[1, 4]);
+        assert_eq!(graph.neighbors(4), &[2, 3]);
+
+        assert!(graph.exists(0, 1));
+        assert!(graph.exists(0, 2));
+        assert!(!graph.exists(0, 3));
+        assert!(graph.exists(3, 4));
+        assert!(!graph.exists(3, 2));
+
+        assert_eq!(graph.nodes_by_label(0), &[0]);
+        assert_eq!(graph.nodes_by_label(1), &[1, 3]);
+        assert_eq!(graph.nodes_by_label(2), &[2, 4]);
+    }
+
+    #[test]
+    fn read_from_gdl() {
+        let graph = "
+        |(n0:L0),
+        |(n1:L1),
+        |(n2:L2),
+        |(n3:L1),
+        |(n4:L2),
+        |(n0)-->(n1),
+        |(n0)-->(n2),
+        |(n1)-->(n2),
+        |(n1)-->(n3),
+        |(n2)-->(n4),
+        |(n3)-->(n4)
+        |"
+        .trim_margin()
+        .unwrap()
+        .parse::<GdlGraph>()
+        .unwrap();
 
         assert_eq!(graph.node_count(), 5);
         assert_eq!(graph.relationship_count(), 6);
