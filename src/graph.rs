@@ -126,8 +126,7 @@ where
         let mut labels = Vec::<usize>::with_capacity(node_count);
         let mut offsets = Vec::<usize>::with_capacity(node_count + 1);
         // undirected
-        let mut neighbors = Vec::<usize>::with_capacity(relationship_count * 2);
-        neighbors.resize(relationship_count * 2, 0);
+        let mut neighbors = vec![0; relationship_count * 2];
 
         offsets.push(0);
 
@@ -173,8 +172,7 @@ where
         }
 
         // stores the next offset to insert for each node
-        let mut next_offset = Vec::<usize>::with_capacity(node_count);
-        next_offset.resize(node_count, 0);
+        let mut next_offset = vec![0; node_count];
 
         // read (undirected) relationships
         //
@@ -245,8 +243,7 @@ impl From<ParseGraph> for Graph {
         let max_label_frequency = label_frequency.values().max().unwrap_or(&0).clone();
 
         // reverse label index
-        let mut reverse_index = Vec::<usize>::with_capacity(node_count);
-        reverse_index.resize(node_count, 0);
+        let mut reverse_index = vec![0; node_count];
         let mut reverse_index_offsets = Vec::<usize>::with_capacity(label_count + 1);
         reverse_index_offsets.push(0);
 
