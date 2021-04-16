@@ -1,8 +1,11 @@
 [package]
 name = "subgraph-matching"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Martin Junghanns <nerdfaktor42@mailbox.org>"]
+description = "A library and utility to perform subgraph matching"
+keywords = ["graph", "subgraph", "matching", "isomorphism"]
 edition = "2018"
+repository = "https://github.com/s1ck/subgraph-matching"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
