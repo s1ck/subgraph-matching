@@ -279,7 +279,7 @@ impl From<ParseGraph> for Graph {
     }
 }
 
-struct GdlGraph(Graph);
+pub struct GdlGraph(Graph);
 
 impl Deref for GdlGraph {
     type Target = Graph;
@@ -343,10 +343,6 @@ impl FromStr for GdlGraph {
                 .id();
             let _ = write!(rels_string, "e {} {}\n", source_id, target_id);
         }
-
-        let input = format!("{}\n{}{}", header, nodes_string, rels_string);
-
-        println!("{}", input);
 
         let graph = format!("{}\n{}{}", header, nodes_string, rels_string)
             .parse::<Graph>()
