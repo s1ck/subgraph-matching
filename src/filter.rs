@@ -82,7 +82,7 @@ impl Display for Candidates {
             .map(|(n, c)| format!("{}: {}", n, c.len()))
             .collect::<Vec<_>>();
 
-        write!(f, "{}", counts.join(", "))
+        write!(f, "{{{}}}", counts.join(", "))
     }
 }
 

@@ -356,7 +356,7 @@ impl FromStr for GdlGraph {
     }
 }
 
-pub fn parse(path: PathBuf) -> Result<Graph> {
+pub fn parse(path: &PathBuf) -> Result<Graph> {
     println!("Reading from: {:?}", path);
     let start = Instant::now();
     let file = File::open(path)?;
