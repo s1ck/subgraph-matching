@@ -89,7 +89,6 @@ impl Display for Candidates {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::graph::GdlGraph;
     use trim_margin::MarginTrimmable;
 

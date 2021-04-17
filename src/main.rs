@@ -59,6 +59,7 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
 fn measure<R>(desc: &str, func: impl FnOnce() -> R) -> R {
     println!("Start :: {}", desc);
     let start = Instant::now();

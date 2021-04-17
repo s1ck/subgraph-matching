@@ -170,29 +170,31 @@ fn generate_valid_candidates(
 
 #[cfg(test)]
 mod tests {
-    use crate::{filter, order};
-
     use super::*;
+    use crate::{filter, graph::GdlGraph, order};
     use trim_margin::MarginTrimmable;
 
+    fn graph(gdl: &str) -> GdlGraph {
+        gdl.trim_margin().unwrap().parse::<GdlGraph>().unwrap()
+    }
+
     const TEST_GRAPH: &str = "
-        |t 5 6
-        |v 0 0 2
-        |v 1 1 3
-        |v 2 2 3
-        |v 3 1 2
-        |v 4 2 2
-        |e 0 1
-        |e 0 2
-        |e 1 2
-        |e 1 3
-        |e 2 4
-        |e 3 4
+        |(n0:L0)
+        |(n1:L1)
+        |(n2:L2)
+        |(n3:L1)
+        |(n4:L2)
+        |(n0)-->(n1)
+        |(n0)-->(n2)
+        |(n1)-->(n2)
+        |(n1)-->(n3)
+        |(n2)-->(n4)
+        |(n3)-->(n4)
         |";
 
     #[test]
     fn test_visited_neighbors() {
-        let graph = TEST_GRAPH.trim_margin().unwrap().parse::<Graph>().unwrap();
+        let graph = graph(TEST_GRAPH);
 
         let order = vec![2, 4, 0, 1, 3];
 
@@ -207,20 +209,14 @@ mod tests {
 
     #[test]
     fn test_line_query() {
-        let data_graph = TEST_GRAPH.trim_margin().unwrap().parse::<Graph>().unwrap();
-
-        let query_graph = "
-            |t 3 2
-            |v 0 0 1
-            |v 1 1 2
-            |v 2 2 1
-            |e 0 1
-            |e 1 2
-            |"
-        .trim_margin()
-        .unwrap()
-        .parse::<Graph>()
-        .unwrap();
+        let data_graph = graph(TEST_GRAPH);
+        let query_graph = graph(
+            "
+            |(n0:L0),(n1:L1),(n2:L2)
+            |(n0)-->(n1)
+            |(n1)-->(n2)
+            |",
+        );
 
         let candidates = filter::ldf_filter(&data_graph, &query_graph).unwrap();
         assert_eq!(candidates.candidates(0), &[0]);
@@ -242,22 +238,16 @@ mod tests {
 
     #[test]
     fn test_diamond() {
-        let data_graph = TEST_GRAPH.trim_margin().unwrap().parse::<Graph>().unwrap();
-        let query_graph = "
-            |t 4 4
-            |v 0 1 2
-            |v 1 2 2
-            |v 2 1 2
-            |v 3 2 2
-            |e 0 1
-            |e 0 2
-            |e 1 3
-            |e 2 3
-            |"
-        .trim_margin()
-        .unwrap()
-        .parse::<Graph>()
-        .unwrap();
+        let data_graph = graph(TEST_GRAPH);
+        let query_graph = graph(
+            "
+            |(n0:L1),(n1:L2),(n2:L1),(n3:L2)
+            |(n0)-->(n1)
+            |(n0)-->(n2)
+            |(n1)-->(n3)
+            |(n2)-->(n3)
+            |",
+        );
 
         let candidates = filter::ldf_filter(&data_graph, &query_graph).unwrap();
         assert_eq!(candidates.candidates(0), &[1, 3]);
