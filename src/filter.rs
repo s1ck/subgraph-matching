@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::graph::Graph;
 
 // label-and-degree filtering
-pub(crate) fn ldf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
+pub fn ldf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
     let mut candidates = Candidates::from((data_graph, query_graph));
 
     for query_node in 0..query_graph.node_count() {

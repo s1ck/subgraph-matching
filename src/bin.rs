@@ -1,23 +1,5 @@
-/*!
-## Subgraph Matching
-
-A library for finding patterns in graphs.
-
-This is work in progress and unstable.
-
-This project is inspired by https://github.com/RapidsAtHKUST/SubgraphMatching, which is written in C++.
-The corresponding [paper](https://dl.acm.org/doi/10.1145/3318464.3380581) was published at SIGMOD 2020.
-
-### License
-
-MIT
-*/
 #![allow(dead_code)]
-mod cli;
-mod enumerate;
-mod filter;
-mod graph;
-mod order;
+use subgraph_matching::*;
 
 use std::time::Instant;
 
@@ -66,4 +48,32 @@ fn measure<R>(desc: &str, func: impl FnOnce() -> R) -> R {
     let result = func();
     println!("Finish :: {} took {:?}", desc, start.elapsed());
     result
+}
+
+mod cli {
+    use pico_args::Arguments;
+    use std::{ffi::OsStr, path::PathBuf};
+
+    use crate::Result;
+
+    #[derive(Debug)]
+    pub(crate) struct AppArgs {
+        pub(crate) query_graph: std::path::PathBuf,
+        pub(crate) data_graph: std::path::PathBuf,
+    }
+
+    pub(crate) fn main() -> Result<AppArgs> {
+        let mut pargs = Arguments::from_env();
+
+        fn as_path_buf(arg: &OsStr) -> Result<PathBuf> {
+            Ok(arg.into())
+        }
+
+        let args = AppArgs {
+            query_graph: pargs.value_from_os_str(["-q", "--query-graph"], as_path_buf)?,
+            data_graph: pargs.value_from_os_str(["-d", "--data-graph"], as_path_buf)?,
+        };
+
+        Ok(args)
+    }
 }
