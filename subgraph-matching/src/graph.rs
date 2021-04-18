@@ -5,7 +5,7 @@ use std::{
     path::PathBuf, str::FromStr, time::Instant,
 };
 
-use crate::Result;
+use crate::Error;
 
 use linereader::LineReader;
 
@@ -89,9 +89,9 @@ impl Display for Graph {
 }
 
 impl FromStr for Graph {
-    type Err = eyre::Report;
+    type Err = Error;
 
-    fn from_str(input: &str) -> Result<Self> {
+    fn from_str(input: &str) -> Result<Self, Error> {
         let reader = LineReader::new(input.as_bytes());
         let parse_graph = ParseGraph::try_from(reader)?;
         Ok(Graph::from(parse_graph))
@@ -113,9 +113,9 @@ impl<R> TryFrom<LineReader<R>> for ParseGraph
 where
     R: Read,
 {
-    type Error = eyre::Report;
+    type Error = Error;
 
-    fn try_from(mut lines: LineReader<R>) -> Result<Self> {
+    fn try_from(mut lines: LineReader<R>) -> Result<Self, Error> {
         let mut header = lines.next_line().expect("missing header line")?;
 
         // skip "t" char and white space
@@ -290,9 +290,9 @@ impl Deref for GdlGraph {
 }
 
 impl FromStr for GdlGraph {
-    type Err = eyre::Report;
+    type Err = Error;
 
-    fn from_str(gdl: &str) -> Result<Self> {
+    fn from_str(gdl: &str) -> Result<Self, Error> {
         fn degree(gdl_graph: &gdl::Graph, node: &gdl::graph::Node) -> usize {
             let mut degree = 0;
 
@@ -307,7 +307,7 @@ impl FromStr for GdlGraph {
             degree
         }
 
-        let gdl_graph = gdl.parse::<gdl::Graph>().unwrap();
+        let gdl_graph = gdl.parse::<gdl::Graph>()?;
 
         let header = format!(
             "t {} {}",
@@ -352,7 +352,7 @@ impl FromStr for GdlGraph {
     }
 }
 
-pub fn parse(path: &PathBuf) -> Result<Graph> {
+pub fn parse(path: &PathBuf) -> Result<Graph, Error> {
     println!("Reading from: {:?}", path);
     let start = Instant::now();
     let file = File::open(path)?;

@@ -18,4 +18,20 @@ pub mod filter;
 pub mod graph;
 pub mod order;
 
-use eyre::Result;
+use std::io;
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("error while parsing graph file")]
+    ParseGraph {
+        #[from]
+        source: io::Error,
+    },
+    #[error("error while parsing GDL graph")]
+    ParseGdlGraph {
+        #[from]
+        source: gdl::graph::GraphHandlerError,
+    },
+}
