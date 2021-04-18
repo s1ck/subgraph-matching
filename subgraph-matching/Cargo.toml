@@ -1,0 +1,20 @@
+[package]
+name = "subgraph-matching"
+version = "0.0.1"
+authors = ["Martin Junghanns <nerdfaktor42@mailbox.org>"]
+description = "A library and utility to perform subgraph matching"
+keywords = ["graph", "subgraph", "matching", "isomorphism"]
+edition = "2018"
+repository = "https://github.com/s1ck/subgraph-matching"
+license = "MIT"
+
+[dependencies]
+atoi = "0.4.0"
+eyre = "0.6.5"
+gdl = "0.2.4"
+linereader = "0.4.0"
+pico-args = "0.4.0"
+thiserror = "1.0.24"
+
+[dev-dependencies]
+trim-margin = "0.1.0"
