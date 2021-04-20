@@ -1,9 +1,9 @@
 use atoi::FromRadix10;
-use std::fmt::Write;
 use std::{
     collections::HashMap, convert::TryFrom, fmt::Display, fs::File, io::Read, ops::Deref,
-    path::PathBuf, str::FromStr, time::Instant,
+    str::FromStr, time::Instant,
 };
+use std::{fmt::Write, path::Path};
 
 use crate::Error;
 
@@ -352,7 +352,7 @@ impl FromStr for GdlGraph {
     }
 }
 
-pub fn parse(path: &PathBuf) -> Result<Graph, Error> {
+pub fn parse(path: &Path) -> Result<Graph, Error> {
     println!("Reading from: {:?}", path);
     let start = Instant::now();
     let file = File::open(path)?;

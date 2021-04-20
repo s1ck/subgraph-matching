@@ -20,6 +20,7 @@ pub mod order;
 
 use std::io;
 
+use graph::Graph;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -34,4 +35,11 @@ pub enum Error {
         #[from]
         source: gdl::graph::GraphHandlerError,
     },
+}
+
+pub fn find(data_graph: &Graph, query_graph: &Graph) -> usize {
+    let mut candidates = filter::ldf_filter(&data_graph, &query_graph).unwrap_or_default();
+    candidates.sort();
+    let order = order::gql_order(&data_graph, &query_graph, &candidates);
+    enumerate::gql(&data_graph, &query_graph, &candidates, &order)
 }
