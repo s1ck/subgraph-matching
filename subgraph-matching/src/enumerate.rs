@@ -222,7 +222,7 @@ mod tests {
         assert_eq!(candidates.candidates(0), &[0]);
         assert_eq!(candidates.candidates(1), &[1, 3]);
         assert_eq!(candidates.candidates(2), &[2, 4]);
-        let order = order::gql_order(&&data_graph, &&query_graph, &candidates);
+        let order = order::gql_order(&data_graph, &query_graph, &candidates);
         assert_eq!(order, &[0, 1, 2]);
 
         let embedding_count = gql_with(
@@ -262,7 +262,7 @@ mod tests {
 
         let embedding_count = gql_with(
             &data_graph,
-            &&query_graph,
+            &query_graph,
             &candidates,
             &order,
             |embedding| embeddings.push(Vec::from(embedding)),

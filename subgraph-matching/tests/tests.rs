@@ -37,7 +37,7 @@ fn expected_counts() -> HashMap<String, usize> {
         .map(|line| line.split(":"))
         .map(|mut split| {
             (
-                split.next().unwrap().clone().to_string(),
+                split.next().unwrap().to_string(),
                 split.next().unwrap().parse::<usize>().unwrap(),
             )
         })
