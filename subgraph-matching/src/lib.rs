@@ -37,18 +37,70 @@ pub enum Error {
     },
 }
 
-pub fn find(data_graph: &Graph, query_graph: &Graph) -> usize {
-    find_with(data_graph, query_graph, |_| {})
+pub enum Filter {
+    LDF,
+    GQL,
 }
 
-pub fn find_with<F>(data_graph: &Graph, query_graph: &Graph, action: F) -> usize
+pub enum Order {
+    GQL,
+}
+
+pub enum Enumeration {
+    GQL,
+}
+
+pub struct Config {
+    filter: Filter,
+    order: Order,
+    enumeration: Enumeration,
+}
+
+impl Config {
+    pub fn new(filter: Filter, order: Order, enumeration: Enumeration) -> Self {
+        Config {
+            filter,
+            order,
+            enumeration,
+        }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            filter: Filter::LDF,
+            order: Order::GQL,
+            enumeration: Enumeration::GQL,
+        }
+    }
+}
+
+pub fn find(data_graph: &Graph, query_graph: &Graph, config: &Config) -> usize {
+    find_with(data_graph, query_graph, |_| {}, config)
+}
+
+pub fn find_with<F>(data_graph: &Graph, query_graph: &Graph, action: F, config: &Config) -> usize
 where
     F: FnMut(&[usize]),
 {
-    let mut candidates = filter::ldf_filter(&data_graph, &query_graph).unwrap_or_default();
+    let mut candidates = match config.filter {
+        Filter::LDF => filter::ldf_filter(data_graph, query_graph).unwrap_or_default(),
+        Filter::GQL => filter::gql_filter(data_graph, query_graph).unwrap_or_default(),
+    };
+
+    // Sort candidates to support set intersections
     candidates.sort();
-    let order = order::gql_order(&data_graph, &query_graph, &candidates);
-    enumerate::gql_with(&data_graph, &query_graph, &candidates, &order, action)
+
+    let order = match config.order {
+        Order::GQL => order::gql_order(data_graph, query_graph, &candidates),
+    };
+
+    match config.enumeration {
+        Enumeration::GQL => {
+            enumerate::gql_with(&data_graph, &query_graph, &candidates, &order, action)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -86,7 +138,7 @@ mod tests {
             |",
         );
 
-        assert_eq!(find(&data_graph, &query_graph), 2)
+        assert_eq!(find(&data_graph, &query_graph, &Config::default()), 2)
     }
 
     #[test]
@@ -101,9 +153,12 @@ mod tests {
         );
 
         let mut embeddings = Vec::new();
-        let count = find_with(&data_graph, &query_graph, |embedding| {
-            embeddings.push(Vec::from(embedding))
-        });
+        let count = find_with(
+            &data_graph,
+            &query_graph,
+            |embedding| embeddings.push(Vec::from(embedding)),
+            &Config::default(),
+        );
 
         assert_eq!(count, 2);
         assert_eq!(embeddings[0], vec![2, 1, 3]);

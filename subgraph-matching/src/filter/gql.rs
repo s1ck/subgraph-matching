@@ -61,6 +61,14 @@ pub fn gql_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates>
                 left_mapping.fill(NOT_FOUND);
                 right_mapping.fill(NOT_FOUND);
 
+                match_cheap(
+                    &bigraph_offsets,
+                    &bigraph_targets,
+                    &mut left_mapping,
+                    &mut right_mapping,
+                    left_partition_size,
+                );
+
                 match_bfs(
                     &bigraph_offsets,
                     &bigraph_targets,
@@ -113,6 +121,25 @@ fn compute_bipartite_graph(
     bigraph_offsets[query_node_neighbors.len()] = rel_count;
 }
 
+fn match_cheap(
+    bigraph_offsets: &[usize],
+    bigraph_targets: &[usize],
+    left_mapping: &mut [usize],
+    right_mapping: &mut [usize],
+    left_size: usize,
+) {
+    for left in 0..left_size {
+        for offset in bigraph_offsets[left]..bigraph_offsets[left + 1] {
+            let right = bigraph_targets[offset];
+            if right_mapping[right] == NOT_FOUND {
+                left_mapping[left] = right;
+                right_mapping[right] = left;
+                break;
+            }
+        }
+    }
+}
+
 fn match_bfs(
     bigraph_offsets: &[usize],
     bigraph_targets: &[usize],
@@ -123,14 +150,6 @@ fn match_bfs(
     predecessors: &mut [usize],
     left_size: usize,
 ) {
-    old_cheap(
-        bigraph_offsets,
-        bigraph_targets,
-        left_mapping,
-        right_mapping,
-        left_size,
-    );
-
     visited.fill(0);
 
     let mut queue_ptr;
@@ -185,25 +204,6 @@ fn match_bfs(
                 for j in 1..queue_size {
                     visited[left_mapping[queue[j]]] = NOT_FOUND;
                 }
-            }
-        }
-    }
-}
-
-fn old_cheap(
-    bigraph_offsets: &[usize],
-    bigraph_targets: &[usize],
-    left_mapping: &mut [usize],
-    right_mapping: &mut [usize],
-    left_size: usize,
-) {
-    for left in 0..left_size {
-        for offset in bigraph_offsets[left]..bigraph_offsets[left + 1] {
-            let right = bigraph_targets[offset];
-            if right_mapping[right] == NOT_FOUND {
-                left_mapping[left] = right;
-                right_mapping[right] = left;
-                break;
             }
         }
     }
