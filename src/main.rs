@@ -20,6 +20,8 @@ use eyre::Result;
 fn main() -> Result<()> {
     let args = cli::main()?;
 
+    let start = Instant::now();
+
     println!("------");
     let query_graph = measure("Load query graph", || graph::parse(&args.query_graph))?;
     println!("------");
@@ -53,6 +55,8 @@ fn main() -> Result<()> {
     });
     println!("Embedding count = {}", embedding_count);
     println!("------");
+
+    println!("Total runtime = {:?}", start.elapsed());
 
     Ok(())
 }
