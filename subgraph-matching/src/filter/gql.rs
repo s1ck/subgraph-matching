@@ -28,14 +28,14 @@ pub fn gql_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates>
     let data_graph_max_degree = data_graph.max_degree();
 
     // CSR datastructures to represent the bi-partite graph
-    let mut bigraph_offsets = vec![0_usize; query_graph_max_degree + 1];
-    let mut bigraph_targets = vec![0_usize; query_graph_max_degree * data_graph_max_degree];
+    let mut offsets = vec![0_usize; query_graph_max_degree + 1];
+    let mut targets = vec![0_usize; query_graph_max_degree * data_graph_max_degree];
     let mut left_mapping = vec![0_usize; query_graph_max_degree];
     let mut right_mapping = vec![0_usize; data_graph_max_degree];
-    // Buffers for BFS
-    let mut match_visited = vec![0_usize; data_graph_max_degree + 1];
-    let mut match_queue = vec![0_usize; query_node_count];
-    let mut match_previous = vec![0_usize; data_graph_max_degree + 1];
+    // Buffers for BFS in Hopcroft and Karp
+    let mut queue = vec![0_usize; query_node_count];
+    let mut visited = vec![0_usize; data_graph_max_degree + 1];
+    let mut predecessors = vec![0_usize; data_graph_max_degree + 1];
 
     // Global refinement
     for _ in 0..2 {
@@ -54,33 +54,36 @@ pub fn gql_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates>
                     query_node_neighbors,
                     data_node_neighbors,
                     &valid_candidates,
-                    &mut bigraph_offsets,
-                    &mut bigraph_targets,
+                    &mut offsets,
+                    &mut targets,
                 );
 
                 left_mapping.fill(NOT_FOUND);
                 right_mapping.fill(NOT_FOUND);
 
+                // A cheap match to reduce overhead for Hopcroft and Karp.
                 match_cheap(
-                    &bigraph_offsets,
-                    &bigraph_targets,
+                    &offsets,
+                    &targets,
                     &mut left_mapping,
                     &mut right_mapping,
                     left_partition_size,
                 );
 
+                // Run Hopcroft and Karp to find maximal matching.
                 match_bfs(
-                    &bigraph_offsets,
-                    &bigraph_targets,
+                    &offsets,
+                    &targets,
                     &mut left_mapping,
                     &mut right_mapping,
-                    &mut match_visited,
-                    &mut match_queue,
-                    &mut match_previous,
+                    &mut visited,
+                    &mut queue,
+                    &mut predecessors,
                     left_partition_size,
                 );
 
-                if !is_semi_perfect_mapping(&left_mapping, left_partition_size) {
+                // Check if each neighbor has a match.
+                if !is_semi_perfect_matching(&left_mapping, left_partition_size) {
                     valid_candidates[query_node][*data_node] = false;
                     *data_node = INVALID_NODE_ID;
                 }
@@ -102,35 +105,35 @@ fn compute_bipartite_graph(
     query_node_neighbors: &[usize],
     data_node_neighbors: &[usize],
     valid_candidates: &[Vec<bool>],
-    bigraph_offsets: &mut [usize],
-    bigraph_targets: &mut [usize],
+    offsets: &mut [usize],
+    targets: &mut [usize],
 ) {
     let mut rel_count: usize = 0;
 
     for (i, query_node_neighbor) in query_node_neighbors.iter().enumerate() {
-        bigraph_offsets[i] = rel_count;
+        offsets[i] = rel_count;
 
         for (j, data_node_neighbor) in data_node_neighbors.iter().enumerate() {
             if valid_candidates[*query_node_neighbor][*data_node_neighbor] {
-                bigraph_targets[rel_count] = j;
+                targets[rel_count] = j;
                 rel_count += 1;
             }
         }
     }
 
-    bigraph_offsets[query_node_neighbors.len()] = rel_count;
+    offsets[query_node_neighbors.len()] = rel_count;
 }
 
 fn match_cheap(
-    bigraph_offsets: &[usize],
-    bigraph_targets: &[usize],
+    offsets: &[usize],
+    targets: &[usize],
     left_mapping: &mut [usize],
     right_mapping: &mut [usize],
     left_size: usize,
 ) {
     for left in 0..left_size {
-        for offset in bigraph_offsets[left]..bigraph_offsets[left + 1] {
-            let right = bigraph_targets[offset];
+        for offset in offsets[left]..offsets[left + 1] {
+            let right = targets[offset];
             if right_mapping[right] == NOT_FOUND {
                 left_mapping[left] = right;
                 right_mapping[right] = left;
@@ -140,9 +143,11 @@ fn match_cheap(
     }
 }
 
+/// An implementation of "Hopcroft and Karp" to find
+/// the maximum matching in a bi-partite graph.
 fn match_bfs(
-    bigraph_offsets: &[usize],
-    bigraph_targets: &[usize],
+    offsets: &[usize],
+    targets: &[usize],
     left_mapping: &mut [usize],
     right_mapping: &mut [usize],
     visited: &mut [usize],
@@ -155,15 +160,15 @@ fn match_bfs(
     let mut queue_ptr;
     let mut queue_size;
     let mut next;
-    let mut target;
-    let mut col;
+    let mut left;
+    let mut right;
     let mut temp;
 
-    let mut next_augment_no = 1;
+    let mut augment_path_id = 1;
 
-    for root in 0..left_size {
-        if left_mapping[root] == NOT_FOUND && bigraph_offsets[root] != bigraph_offsets[root + 1] {
-            queue[0] = root;
+    for start in 0..left_size {
+        if left_mapping[start] == NOT_FOUND && offsets[start] != offsets[start + 1] {
+            queue[0] = start;
             queue_ptr = 0;
             queue_size = 1;
 
@@ -171,36 +176,38 @@ fn match_bfs(
                 next = queue[queue_ptr];
                 queue_ptr += 1;
 
-                for offset in bigraph_offsets[next]..bigraph_offsets[next + 1] {
-                    target = bigraph_targets[offset];
-                    temp = visited[target];
+                for offset in offsets[next]..offsets[next + 1] {
+                    right = targets[offset];
+                    temp = visited[right];
 
-                    if temp != next_augment_no && temp != NOT_FOUND {
-                        predecessors[target] = next;
-                        visited[target] = next_augment_no;
+                    if temp != augment_path_id && temp != NOT_FOUND {
+                        predecessors[right] = next;
+                        visited[right] = augment_path_id;
 
-                        col = right_mapping[target];
+                        left = right_mapping[right];
 
-                        if col == NOT_FOUND {
-                            while target != NOT_FOUND {
-                                col = predecessors[target];
-                                temp = left_mapping[col];
-                                left_mapping[col] = target;
-                                right_mapping[target] = col;
-                                target = temp;
+                        if left == NOT_FOUND {
+                            // Found an augmenting path.
+                            // Traverse back and flip matched and non-matched edges.
+                            while right != NOT_FOUND {
+                                left = predecessors[right];
+                                temp = left_mapping[left];
+                                left_mapping[left] = right;
+                                right_mapping[right] = left;
+                                right = temp;
                             }
-                            next_augment_no += 1;
+                            augment_path_id += 1;
                             queue_size = 0;
                             break;
                         } else {
-                            queue[queue_size] = col;
+                            queue[queue_size] = left;
                             queue_size += 1;
                         }
                     }
                 }
             }
 
-            if left_mapping[root] == NOT_FOUND {
+            if left_mapping[start] == NOT_FOUND {
                 for j in 1..queue_size {
                     visited[left_mapping[queue[j]]] = NOT_FOUND;
                 }
@@ -209,8 +216,7 @@ fn match_bfs(
     }
 }
 
-// Checks if each element on the left side has a match on the right side
-fn is_semi_perfect_mapping(mapping: &[usize], size: usize) -> bool {
+fn is_semi_perfect_matching(mapping: &[usize], size: usize) -> bool {
     for i in 0..size {
         if mapping[i] == NOT_FOUND {
             return false;
@@ -302,5 +308,35 @@ mod tests {
         assert_eq!(candidates.candidate_count(1), 1);
         assert_eq!(candidates.candidate_count(2), 2);
         assert_eq!(candidates.candidate_count(3), 2);
+    }
+
+    #[test]
+    fn test_match_bfs() {
+        let node_count = 6;
+
+        #[rustfmt::skip] let offsets = vec![0,    2,    4, 5,    7,    9, 10];
+        #[rustfmt::skip] let targets = vec![0, 1, 2, 3, 1, 3, 4, 3, 5, 4,  0];
+
+        #[rustfmt::skip] let mut left_mapping  = vec![        1, 3, NOT_FOUND, 4, 5, NOT_FOUND];
+        #[rustfmt::skip] let mut right_mapping = vec![NOT_FOUND, 0, NOT_FOUND, 1, 3,         4];
+
+        // Buffers for BFS
+        let mut visited = vec![0_usize; node_count + 1];
+        let mut queue = vec![0_usize; node_count];
+        let mut predecessors = vec![0_usize; node_count + 1];
+
+        match_bfs(
+            &offsets,
+            &targets,
+            &mut left_mapping,
+            &mut right_mapping,
+            &mut visited,
+            &mut queue,
+            &mut predecessors,
+            node_count,
+        );
+
+        assert_eq!(left_mapping, &[0, 2, 1, 3, 5, 4]);
+        assert_eq!(right_mapping, &[0, 2, 1, 3, 5, 4]);
     }
 }
