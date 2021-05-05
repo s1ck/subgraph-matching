@@ -1,6 +1,6 @@
 [package]
 name = "suma"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Martin Junghanns <nerdfaktor42@mailbox.org>"]
 description = "A command line utility for subgraph matching."
 keywords = ["graph", "subgraph", "matching", "isomorphism", "cli"]
@@ -13,4 +13,4 @@ license = "MIT"
 [dependencies]
 eyre = "0.6.5"
 pico-args = "0.4.0"
-subgraph-matching = { path = "subgraph-matching" }
+subgraph-matching = "0.0.3"
