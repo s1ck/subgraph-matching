@@ -1,6 +1,6 @@
 [package]
 name = "subgraph-matching"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Martin Junghanns <nerdfaktor42@mailbox.org>"]
 description = "A library for subgraph matching."
 keywords = ["graph", "subgraph", "matching", "isomorphism"]
