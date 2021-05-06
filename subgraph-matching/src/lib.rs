@@ -18,7 +18,7 @@ pub mod filter;
 pub mod graph;
 pub mod order;
 
-use std::io;
+use std::{fmt::Display, io};
 
 use graph::Graph;
 use thiserror::Error;
@@ -37,24 +37,32 @@ pub enum Error {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Filter {
     LDF,
     GQL,
 }
 
+impl Display for Filter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Order {
     GQL,
 }
-
+#[derive(Debug, Clone, Copy)]
 pub enum Enumeration {
     GQL,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Config {
-    filter: Filter,
-    order: Order,
-    enumeration: Enumeration,
+    pub filter: Filter,
+    pub order: Order,
+    pub enumeration: Enumeration,
 }
 
 impl Config {
@@ -77,14 +85,30 @@ impl Default for Config {
     }
 }
 
-pub fn find(data_graph: &Graph, query_graph: &Graph, config: &Config) -> usize {
+impl From<Filter> for Config {
+    fn from(filter: Filter) -> Self {
+        Config {
+            filter,
+            ..Config::default()
+        }
+    }
+}
+
+pub fn find(data_graph: &Graph, query_graph: &Graph, config: impl Into<Config>) -> usize {
     find_with(data_graph, query_graph, |_| {}, config)
 }
 
-pub fn find_with<F>(data_graph: &Graph, query_graph: &Graph, action: F, config: &Config) -> usize
+pub fn find_with<F>(
+    data_graph: &Graph,
+    query_graph: &Graph,
+    action: F,
+    config: impl Into<Config>,
+) -> usize
 where
     F: FnMut(&[usize]),
 {
+    let config = config.into();
+
     let mut candidates = match config.filter {
         Filter::LDF => filter::ldf_filter(data_graph, query_graph).unwrap_or_default(),
         Filter::GQL => filter::gql_filter(data_graph, query_graph).unwrap_or_default(),
@@ -139,7 +163,7 @@ mod tests {
             |",
         );
 
-        assert_eq!(find(&data_graph, &query_graph, &Config::default()), 2)
+        assert_eq!(find(&data_graph, &query_graph, Config::default()), 2)
     }
 
     #[test]
@@ -158,7 +182,7 @@ mod tests {
             &data_graph,
             &query_graph,
             |embedding| embeddings.push(Vec::from(embedding)),
-            &Config::default(),
+            Config::default(),
         );
 
         assert_eq!(count, 2);

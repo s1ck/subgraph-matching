@@ -16,4 +16,9 @@ pico-args = "0.4.0"
 thiserror = "1.0.24"
 
 [dev-dependencies]
+criterion = "0.3"
 trim-margin = "0.1.0"
+
+[[bench]]
+name = "benchmark"
+harness = false

@@ -50,15 +50,15 @@ fn expected_counts() -> HashMap<String, usize> {
 
 #[test]
 fn filter_ldf_order_gql_enumeration_gql() {
-    assert_expected_counts(&Config::new(Filter::LDF, Order::GQL, Enumeration::GQL))
+    assert_expected_counts(Config::new(Filter::LDF, Order::GQL, Enumeration::GQL))
 }
 
 #[test]
 fn filter_gql_order_gql_enumeration_gql() {
-    assert_expected_counts(&Config::new(Filter::GQL, Order::GQL, Enumeration::GQL))
+    assert_expected_counts(Config::new(Filter::GQL, Order::GQL, Enumeration::GQL))
 }
 
-fn assert_expected_counts(config: &Config) {
+fn assert_expected_counts(config: Config) {
     let data_graph = data_graph();
     let expected_counts = expected_counts();
 
