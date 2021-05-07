@@ -34,8 +34,8 @@ fn main() -> Result<()> {
 
     let candidates = measure("Filter candidates", || {
         let mut candidates = match args.filter {
-            Filter::LDF => filter::ldf_filter(&data_graph, &query_graph).unwrap_or_default(),
-            Filter::GQL => filter::gql_filter(&data_graph, &query_graph).unwrap_or_default(),
+            Filter::Ldf => filter::ldf_filter(&data_graph, &query_graph).unwrap_or_default(),
+            Filter::Gql => filter::gql_filter(&data_graph, &query_graph).unwrap_or_default(),
         };
         // sorting candidates to support set intersection
         candidates.sort();
@@ -95,7 +95,7 @@ mod cli {
             data_graph: pargs.value_from_os_str(["-d", "--data-graph"], as_path_buf)?,
             filter: pargs
                 .opt_value_from_fn(["-f", "--filter"], FilterWrapper::from_str)?
-                .unwrap_or(FilterWrapper(Filter::LDF))
+                .unwrap_or(FilterWrapper(Filter::Ldf))
                 .into(),
         };
 
@@ -115,8 +115,8 @@ mod cli {
 
         fn from_str(s: &str) -> Result<FilterWrapper> {
             match s {
-                "LDF" | "ldf" => Ok(FilterWrapper(Filter::LDF)),
-                "GQL" | "gql" => Ok(FilterWrapper(Filter::GQL)),
+                "LDF" | "ldf" => Ok(FilterWrapper(Filter::Ldf)),
+                "GQL" | "gql" => Ok(FilterWrapper(Filter::Gql)),
                 _ => Err(eyre::eyre!("Unsupported filter {}", s)),
             }
         }

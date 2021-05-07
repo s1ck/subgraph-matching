@@ -55,19 +55,19 @@ where
     let config = config.into();
 
     let mut candidates = match config.filter {
-        Filter::LDF => filter::ldf_filter(data_graph, query_graph).unwrap_or_default(),
-        Filter::GQL => filter::gql_filter(data_graph, query_graph).unwrap_or_default(),
+        Filter::Ldf => filter::ldf_filter(data_graph, query_graph).unwrap_or_default(),
+        Filter::Gql => filter::gql_filter(data_graph, query_graph).unwrap_or_default(),
     };
 
     // Sort candidates to support set intersections
     candidates.sort();
 
     let order = match config.order {
-        Order::GQL => order::gql_order(data_graph, query_graph, &candidates),
+        Order::Gql => order::gql_order(data_graph, query_graph, &candidates),
     };
 
     match config.enumeration {
-        Enumeration::GQL => {
+        Enumeration::Gql => {
             enumerate::gql_with(&data_graph, &query_graph, &candidates, &order, action)
         }
     }

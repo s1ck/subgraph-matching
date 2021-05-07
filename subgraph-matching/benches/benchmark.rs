@@ -32,9 +32,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("find");
 
-    for filter in vec![Filter::LDF, Filter::GQL] {
-        for order in vec![Order::GQL] {
-            for enumeration in vec![Enumeration::GQL] {
+    for filter in vec![Filter::Ldf, Filter::Gql] {
+        for order in vec![Order::Gql] {
+            for enumeration in vec![Enumeration::Gql] {
                 let config = Config {
                     filter,
                     order,

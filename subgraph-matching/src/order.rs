@@ -1,15 +1,9 @@
 use crate::{filter::Candidates, graph::Graph};
 
-pub type MatchingOrder = Vec<usize>;
-
 /// Builds a matching order by starting with the node with the minimum
 /// number of candidates and iteratively selecting nodes that are adjacent
 /// to already selected nodes and having the minimum number of candidates.
-pub fn gql_order(
-    data_graph: &Graph,
-    query_graph: &Graph,
-    candidates: &Candidates,
-) -> MatchingOrder {
+pub fn gql_order(data_graph: &Graph, query_graph: &Graph, candidates: &Candidates) -> Vec<usize> {
     let node_count = query_graph.node_count();
 
     let mut visited = vec![false; node_count];
@@ -43,7 +37,7 @@ pub fn gql_order(
         order.push(next_node);
     }
 
-    order
+    order.into()
 }
 
 /// Selects the node with the minimum number of candidates as start node.

@@ -324,7 +324,7 @@ impl FromStr for GdlGraph {
             let id = node.id();
             let label = node.labels().next().expect("Single label expected");
             let degree = degree(&gdl_graph, node);
-            let _ = write!(nodes_string, "v {} {} {}\n", id, &label[1..], degree);
+            let _ = writeln!(nodes_string, "v {} {} {}", id, &label[1..], degree);
         }
 
         let mut rels_string = String::from("");
@@ -341,7 +341,7 @@ impl FromStr for GdlGraph {
                 .get_node(rel.target())
                 .expect("Target expected")
                 .id();
-            let _ = write!(rels_string, "e {} {}\n", source_id, target_id);
+            let _ = writeln!(rels_string, "e {} {}", source_id, target_id);
         }
 
         let graph = format!("{}\n{}{}", header, nodes_string, rels_string)

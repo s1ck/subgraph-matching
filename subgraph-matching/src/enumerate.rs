@@ -1,10 +1,10 @@
-use crate::{filter::Candidates, graph::Graph, order::MatchingOrder};
+use crate::{filter::Candidates, graph::Graph};
 
 pub fn gql(
     data_graph: &Graph,
     query_graph: &Graph,
     candidates: &Candidates,
-    order: &MatchingOrder,
+    order: &[usize],
 ) -> usize {
     gql_with(data_graph, query_graph, candidates, order, |_| {})
 }
@@ -13,7 +13,7 @@ pub fn gql_with<F>(
     data_graph: &Graph,
     query_graph: &Graph,
     candidates: &Candidates,
-    order: &MatchingOrder,
+    order: &[usize],
     mut action: F,
 ) -> usize
 where
@@ -45,11 +45,11 @@ where
     }
 
     // Idx tracks the currently processed candidate at each depth.
-    let mut idx = vec![0 as usize; max_depth];
+    let mut idx = vec![0_usize; max_depth];
     // Idx_count tracks the number of valid candidates at each depth.
-    let mut idx_count = vec![0 as usize; max_depth];
+    let mut idx_count = vec![0_usize; max_depth];
     // Stores the mapping between query and data nodes according to order.
-    let mut embedding = vec![0 as usize; max_depth];
+    let mut embedding = vec![0_usize; max_depth];
 
     let mut cur_depth = 0;
 
@@ -103,7 +103,7 @@ where
 /// For each node in the query graph stores which
 /// of their neighbors already have been visited
 /// according to the matching order.
-fn visited_neighbors(query_graph: &Graph, order: &Vec<usize>) -> Vec<Vec<usize>> {
+fn visited_neighbors(query_graph: &Graph, order: &[usize]) -> Vec<Vec<usize>> {
     let max_depth = query_graph.node_count();
     let start_node = order[0];
 

@@ -2,18 +2,18 @@ use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Filter {
-    LDF,
-    GQL,
+    Ldf, // label-degree-filter
+    Gql, // graphql-filter
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Order {
-    GQL,
+    Gql,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Enumeration {
-    GQL,
+    Gql,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -60,9 +60,9 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            filter: Filter::LDF,
-            order: Order::GQL,
-            enumeration: Enumeration::GQL,
+            filter: Filter::Ldf,
+            order: Order::Gql,
+            enumeration: Enumeration::Gql,
         }
     }
 }
