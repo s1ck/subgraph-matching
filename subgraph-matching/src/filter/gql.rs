@@ -4,7 +4,7 @@ use super::Candidates;
 use super::INVALID_NODE_ID;
 
 // The C++ impl uses 100_000_000 :shrug:
-const NOT_FOUND: usize = usize::MAX;
+const UNMAPPED: usize = usize::MAX;
 
 pub fn gql_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
     // Local refinement
@@ -58,8 +58,8 @@ pub fn gql_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates>
                     &mut targets,
                 );
 
-                left_mapping.fill(NOT_FOUND);
-                right_mapping.fill(NOT_FOUND);
+                left_mapping.fill(UNMAPPED);
+                right_mapping.fill(UNMAPPED);
 
                 // A cheap match to reduce overhead for Hopcroft and Karp.
                 match_cheap(
@@ -132,9 +132,8 @@ fn match_cheap(
     left_size: usize,
 ) {
     for left in 0..left_size {
-        for offset in offsets[left]..offsets[left + 1] {
-            let right = targets[offset];
-            if right_mapping[right] == NOT_FOUND {
+        for &right in targets.iter().take(offsets[left + 1]).skip(offsets[left]) {
+            if right_mapping[right] == UNMAPPED {
                 left_mapping[left] = right;
                 right_mapping[right] = left;
                 break;
@@ -167,7 +166,7 @@ fn match_bfs(
     let mut augment_path_id = 1;
 
     for start in 0..left_size {
-        if left_mapping[start] == NOT_FOUND && offsets[start] != offsets[start + 1] {
+        if left_mapping[start] == UNMAPPED && offsets[start] != offsets[start + 1] {
             queue[0] = start;
             queue_ptr = 0;
             queue_size = 1;
@@ -176,20 +175,20 @@ fn match_bfs(
                 next = queue[queue_ptr];
                 queue_ptr += 1;
 
-                for offset in offsets[next]..offsets[next + 1] {
-                    right = targets[offset];
+                for &target in targets.iter().take(offsets[next + 1]).skip(offsets[next]) {
+                    right = target;
                     temp = visited[right];
 
-                    if temp != augment_path_id && temp != NOT_FOUND {
+                    if temp != augment_path_id && temp != UNMAPPED {
                         predecessors[right] = next;
                         visited[right] = augment_path_id;
 
                         left = right_mapping[right];
 
-                        if left == NOT_FOUND {
+                        if left == UNMAPPED {
                             // Found an augmenting path.
                             // Traverse back and flip matched and non-matched edges.
-                            while right != NOT_FOUND {
+                            while right != UNMAPPED {
                                 left = predecessors[right];
                                 temp = left_mapping[left];
                                 left_mapping[left] = right;
@@ -207,9 +206,9 @@ fn match_bfs(
                 }
             }
 
-            if left_mapping[start] == NOT_FOUND {
+            if left_mapping[start] == UNMAPPED {
                 for j in 1..queue_size {
-                    visited[left_mapping[queue[j]]] = NOT_FOUND;
+                    visited[left_mapping[queue[j]]] = UNMAPPED;
                 }
             }
         }
@@ -217,8 +216,8 @@ fn match_bfs(
 }
 
 fn is_semi_perfect_matching(mapping: &[usize], size: usize) -> bool {
-    for i in 0..size {
-        if mapping[i] == NOT_FOUND {
+    for &m in mapping.iter().take(size) {
+        if m == UNMAPPED {
             return false;
         }
     }
@@ -317,8 +316,8 @@ mod tests {
         #[rustfmt::skip] let offsets = vec![0,    2,    4, 5,    7,    9, 10];
         #[rustfmt::skip] let targets = vec![0, 1, 2, 3, 1, 3, 4, 3, 5, 4,  0];
 
-        #[rustfmt::skip] let mut left_mapping  = vec![        1, 3, NOT_FOUND, 4, 5, NOT_FOUND];
-        #[rustfmt::skip] let mut right_mapping = vec![NOT_FOUND, 0, NOT_FOUND, 1, 3,         4];
+        #[rustfmt::skip] let mut left_mapping  = vec![        1, 3, UNMAPPED, 4, 5, UNMAPPED];
+        #[rustfmt::skip] let mut right_mapping = vec![UNMAPPED, 0, UNMAPPED, 1, 3,         4];
 
         // Buffers for BFS
         let mut visited = vec![0_usize; node_count + 1];

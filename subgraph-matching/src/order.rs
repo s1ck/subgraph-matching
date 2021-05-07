@@ -37,7 +37,7 @@ pub fn gql_order(data_graph: &Graph, query_graph: &Graph, candidates: &Candidate
         order.push(next_node);
     }
 
-    order.into()
+    order
 }
 
 /// Selects the node with the minimum number of candidates as start node.
@@ -50,10 +50,9 @@ fn gql_start_node(query_graph: &Graph, candidates: &Candidates) -> usize {
         let num_node_candidates = candidates.candidate_count(node);
         let num_start_candidates = candidates.candidate_count(start);
 
-        if num_node_candidates < num_start_candidates {
-            start = node;
-        } else if num_node_candidates == num_start_candidates
-            && query_graph.degree(node) > query_graph.degree(start)
+        if num_node_candidates < num_start_candidates
+            || (num_node_candidates == num_start_candidates
+                && query_graph.degree(node) > query_graph.degree(start))
         {
             start = node;
         }

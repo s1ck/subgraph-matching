@@ -142,7 +142,7 @@ where
         // Unlike the C++ impl, this assumes the
         // input to be sorted by node id
         while offsets.len() <= node_count {
-            if batch.len() == 0 {
+            if batch.is_empty() {
                 batch = lines.next_batch().expect("missing data")?;
             }
 
@@ -180,7 +180,7 @@ where
         // Unlike the C++ impl this assumes the
         // input to be sorted by source and target
         for _ in 0..relationship_count {
-            if batch.len() == 0 {
+            if batch.is_empty() {
                 batch = lines.next_batch().expect("missing data")?;
             }
             // skip "e" char and white space
@@ -232,7 +232,7 @@ impl From<ParseGraph> for Graph {
         for node in 0..node_count {
             let from = offsets[node];
             let to = offsets[node + 1];
-            neighbors[from..to].sort();
+            neighbors[from..to].sort_unstable();
         }
 
         let label_count = if label_frequency.len() > max_label + 1 {
@@ -241,7 +241,7 @@ impl From<ParseGraph> for Graph {
             max_label + 1
         };
 
-        let max_label_frequency = label_frequency.values().max().unwrap_or(&0).clone();
+        let max_label_frequency = *label_frequency.values().max().unwrap_or(&0);
 
         // reverse label index
         let mut reverse_index = vec![0; node_count];
@@ -255,8 +255,7 @@ impl From<ParseGraph> for Graph {
             total += label_frequency.get(&label).unwrap_or(&0);
         }
 
-        for node in 0..node_count {
-            let label = labels[node];
+        for (node, &label) in labels.iter().enumerate().take(node_count) {
             let offset = reverse_index_offsets[label + 1];
             reverse_index[offset] = node;
             reverse_index_offsets[label + 1] += 1;

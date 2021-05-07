@@ -45,7 +45,7 @@ impl Candidates {
 
     pub fn sort(&mut self) {
         for c in self.candidates.iter_mut() {
-            c.sort()
+            c.sort_unstable()
         }
     }
 
