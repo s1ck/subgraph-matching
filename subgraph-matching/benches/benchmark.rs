@@ -4,7 +4,7 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use subgraph_matching::{
     find,
     graph::{parse, Graph},
-    Filter,
+    Config, Enumeration, Filter, Order,
 };
 
 const CRATE_ROOT: &str = env!("CARGO_MANIFEST_DIR");
@@ -22,23 +22,34 @@ fn graphs() -> (Graph, Graph) {
     (data_graph, query_graph)
 }
 
-fn find_with_filter(data_graph: &Graph, query_graph: &Graph, filter: Filter) -> usize {
-    let embedding_count = find(data_graph, query_graph, filter);
+fn run_find(data_graph: &Graph, query_graph: &Graph, config: Config) -> usize {
+    let embedding_count = find(data_graph, query_graph, config);
     black_box(embedding_count)
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let graphs = graphs();
 
-    let mut group = c.benchmark_group("find_with_filter");
-    for filter in &[Filter::LDF, Filter::GQL] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(filter),
-            &(&graphs, filter),
-            |b, ((data_graph, query_graph), &filter)| {
-                b.iter(|| find_with_filter(data_graph, query_graph, filter));
-            },
-        );
+    let mut group = c.benchmark_group("find");
+
+    for filter in vec![Filter::LDF, Filter::GQL] {
+        for order in vec![Order::GQL] {
+            for enumeration in vec![Enumeration::GQL] {
+                let config = Config {
+                    filter,
+                    order,
+                    enumeration,
+                };
+
+                group.bench_with_input(
+                    BenchmarkId::from_parameter(config),
+                    &(&graphs, config),
+                    |b, ((data_graph, query_graph), config)| {
+                        b.iter(|| run_find(data_graph, query_graph, *config));
+                    },
+                );
+            }
+        }
     }
     group.finish();
 }

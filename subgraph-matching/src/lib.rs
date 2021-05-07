@@ -13,14 +13,16 @@ The corresponding [paper](https://dl.acm.org/doi/10.1145/3318464.3380581) was pu
 MIT
 */
 #![allow(dead_code)]
+pub mod config;
 pub mod enumerate;
 pub mod filter;
 pub mod graph;
 pub mod order;
 
-use std::{fmt::Display, io};
+use std::io;
 
-use graph::Graph;
+pub use config::{Config, Enumeration, Filter, Order};
+pub use graph::Graph;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -35,63 +37,6 @@ pub enum Error {
         #[from]
         source: gdl::graph::GraphHandlerError,
     },
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Filter {
-    LDF,
-    GQL,
-}
-
-impl Display for Filter {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Order {
-    GQL,
-}
-#[derive(Debug, Clone, Copy)]
-pub enum Enumeration {
-    GQL,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Config {
-    pub filter: Filter,
-    pub order: Order,
-    pub enumeration: Enumeration,
-}
-
-impl Config {
-    pub fn new(filter: Filter, order: Order, enumeration: Enumeration) -> Self {
-        Config {
-            filter,
-            order,
-            enumeration,
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            filter: Filter::LDF,
-            order: Order::GQL,
-            enumeration: Enumeration::GQL,
-        }
-    }
-}
-
-impl From<Filter> for Config {
-    fn from(filter: Filter) -> Self {
-        Config {
-            filter,
-            ..Config::default()
-        }
-    }
 }
 
 pub fn find(data_graph: &Graph, query_graph: &Graph, config: impl Into<Config>) -> usize {
