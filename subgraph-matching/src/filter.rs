@@ -4,9 +4,11 @@ use crate::graph::Graph;
 
 mod gql;
 mod ldf;
+mod nlf;
 
 pub use gql::gql_filter;
 pub use ldf::ldf_filter;
+pub use nlf::nlf_filter;
 
 const INVALID_NODE_ID: usize = usize::MAX;
 

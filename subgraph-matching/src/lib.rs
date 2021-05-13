@@ -57,6 +57,7 @@ where
     let mut candidates = match config.filter {
         Filter::Ldf => filter::ldf_filter(data_graph, query_graph).unwrap_or_default(),
         Filter::Gql => filter::gql_filter(data_graph, query_graph).unwrap_or_default(),
+        Filter::Nlf => filter::nlf_filter(data_graph, query_graph).unwrap_or_default(),
     };
 
     // Sort candidates to support set intersections

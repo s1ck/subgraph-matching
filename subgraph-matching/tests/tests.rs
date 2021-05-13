@@ -57,6 +57,10 @@ fn filter_ldf_order_gql_enumeration_gql() {
 fn filter_gql_order_gql_enumeration_gql() {
     assert_expected_counts(Config::new(Filter::Gql, Order::Gql, Enumeration::Gql))
 }
+#[test]
+fn filter_nlf_order_gql_enumeration_gql() {
+    assert_expected_counts(Config::new(Filter::Nlf, Order::Gql, Enumeration::Gql))
+}
 
 fn assert_expected_counts(config: Config) {
     let data_graph = data_graph();

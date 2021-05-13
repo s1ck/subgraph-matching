@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub enum Filter {
     Ldf, // label-degree-filter
     Gql, // graphql-filter
+    Nlf, // neighbor-label-frequency-filter
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -36,6 +36,7 @@ fn main() -> Result<()> {
         let mut candidates = match args.filter {
             Filter::Ldf => filter::ldf_filter(&data_graph, &query_graph).unwrap_or_default(),
             Filter::Gql => filter::gql_filter(&data_graph, &query_graph).unwrap_or_default(),
+            Filter::Nlf => filter::nlf_filter(&data_graph, &query_graph).unwrap_or_default(),
         };
         // sorting candidates to support set intersection
         candidates.sort();
@@ -117,6 +118,7 @@ mod cli {
             match s {
                 "LDF" | "ldf" => Ok(FilterWrapper(Filter::Ldf)),
                 "GQL" | "gql" => Ok(FilterWrapper(Filter::Gql)),
+                "NLF" | "nlf" => Ok(FilterWrapper(Filter::Nlf)),
                 _ => Err(eyre::eyre!("Unsupported filter {}", s)),
             }
         }
