@@ -16,12 +16,14 @@ pub struct Graph {
     labels: Box<[usize]>,
     offsets: Box<[usize]>,
     neighbors: Box<[usize]>,
-    reverse_index: Box<[usize]>,
-    reverse_index_offsets: Box<[usize]>,
+    label_index: Box<[usize]>,
+    label_index_offsets: Box<[usize]>,
     max_degree: usize,
     max_label: usize,
     max_label_frequency: usize,
     label_frequency: HashMap<usize, usize>,
+    #[cfg(feature = "neighbor-label-frequency")]
+    neighbor_label_frequencies: Box<[HashMap<usize, usize>]>,
 }
 
 impl Graph {
@@ -52,9 +54,9 @@ impl Graph {
     }
 
     pub fn nodes_by_label(&self, label: usize) -> &[usize] {
-        let from = self.reverse_index_offsets[label];
-        let to = self.reverse_index_offsets[label + 1];
-        &self.reverse_index[from..to]
+        let from = self.label_index_offsets[label];
+        let to = self.label_index_offsets[label + 1];
+        &self.label_index[from..to]
     }
 
     pub fn label_count(&self) -> usize {
@@ -71,6 +73,11 @@ impl Graph {
 
     pub fn max_label_frequency(&self) -> usize {
         self.max_label_frequency
+    }
+
+    #[cfg(feature = "neighbor-label-frequency")]
+    pub fn neighbor_label_frequency(&self, node: usize) -> &HashMap<usize, usize> {
+        &self.neighbor_label_frequencies[node]
     }
 }
 
@@ -215,65 +222,106 @@ where
     }
 }
 
-impl From<ParseGraph> for Graph {
-    fn from(
-        ParseGraph {
-            node_count,
-            relationship_count,
-            labels,
-            offsets,
-            mut neighbors,
-            max_degree,
-            max_label,
-            label_frequency,
-        }: ParseGraph,
-    ) -> Self {
-        // sort adjacency lists
-        for node in 0..node_count {
-            let from = offsets[node];
-            let to = offsets[node + 1];
-            neighbors[from..to].sort_unstable();
+impl ParseGraph {
+    fn sort_neighbors(&mut self) {
+        for node in 0..self.node_count {
+            let from = self.offsets[node];
+            let to = self.offsets[node + 1];
+            self.neighbors[from..to].sort_unstable();
         }
+    }
 
-        let label_count = if label_frequency.len() > max_label + 1 {
-            label_frequency.len()
+    fn label_count(&self) -> usize {
+        if self.label_frequency.len() > self.max_label + 1 {
+            self.label_frequency.len()
         } else {
-            max_label + 1
-        };
+            self.max_label + 1
+        }
+    }
 
-        let max_label_frequency = *label_frequency.values().max().unwrap_or(&0);
+    fn max_label_frequency(&self) -> usize {
+        self.label_frequency
+            .values()
+            .max()
+            .cloned()
+            .unwrap_or_default()
+    }
 
-        // reverse label index
-        let mut reverse_index = vec![0; node_count];
-        let mut reverse_index_offsets = Vec::<usize>::with_capacity(label_count + 1);
-        reverse_index_offsets.push(0);
+    fn label_index(&self) -> (Vec<usize>, Vec<usize>) {
+        let node_count = self.node_count;
+        let label_count = self.label_count();
+
+        let mut nodes = vec![0; node_count];
+        let mut offsets = Vec::<usize>::with_capacity(label_count + 1);
+        offsets.push(0);
 
         let mut total = 0;
 
         for label in 0..label_count {
-            reverse_index_offsets.push(total);
-            total += label_frequency.get(&label).unwrap_or(&0);
+            offsets.push(total);
+            total += self.label_frequency.get(&label).unwrap_or(&0);
         }
 
-        for (node, &label) in labels.iter().enumerate().take(node_count) {
-            let offset = reverse_index_offsets[label + 1];
-            reverse_index[offset] = node;
-            reverse_index_offsets[label + 1] += 1;
+        for (node, &label) in self.labels.iter().enumerate().take(node_count) {
+            let offset = offsets[label + 1];
+            nodes[offset] = node;
+            offsets[label + 1] += 1;
         }
+
+        (nodes, offsets)
+    }
+
+    #[cfg(feature = "neighbor-label-frequency")]
+    fn neighbor_label_frequencies(&self) -> Vec<HashMap<usize, usize>> {
+        let mut nlfs = Vec::with_capacity(self.node_count);
+
+        for node in 0..self.node_count {
+            let mut nlf = HashMap::<usize, usize>::new();
+
+            for &target in self
+                .neighbors
+                .iter()
+                .take(self.offsets[node + 1])
+                .skip(self.offsets[node])
+            {
+                let target_label = self.labels[target];
+                let count = nlf.entry(target_label).or_insert(0);
+                *count += 1;
+            }
+
+            nlfs.push(nlf);
+        }
+
+        nlfs
+    }
+}
+
+impl From<ParseGraph> for Graph {
+    fn from(mut parse_graph: ParseGraph) -> Self {
+        parse_graph.sort_neighbors();
+        let max_label_frequency = parse_graph.max_label_frequency();
+        let label_count = parse_graph.label_count();
+
+        let (nodes, offsets) = parse_graph.label_index();
+
+        #[cfg(feature = "neighbor-label-frequency")]
+        let node_label_frequencies = parse_graph.neighbor_label_frequencies();
 
         Self {
-            node_count,
-            relationship_count,
+            node_count: parse_graph.node_count,
+            relationship_count: parse_graph.relationship_count,
             label_count,
-            labels: labels.into_boxed_slice(),
-            offsets: offsets.into_boxed_slice(),
-            neighbors: neighbors.into_boxed_slice(),
-            reverse_index: reverse_index.into_boxed_slice(),
-            reverse_index_offsets: reverse_index_offsets.into_boxed_slice(),
-            max_degree,
-            max_label,
+            labels: parse_graph.labels.into_boxed_slice(),
+            offsets: parse_graph.offsets.into_boxed_slice(),
+            neighbors: parse_graph.neighbors.into_boxed_slice(),
+            label_index: nodes.into_boxed_slice(),
+            label_index_offsets: offsets.into_boxed_slice(),
+            max_degree: parse_graph.max_degree,
+            max_label: parse_graph.max_label,
             max_label_frequency,
-            label_frequency,
+            label_frequency: parse_graph.label_frequency,
+            #[cfg(feature = "neighbor-label-frequency")]
+            neighbor_label_frequencies: node_label_frequencies.into_boxed_slice(),
         }
     }
 }
@@ -483,5 +531,35 @@ mod tests {
         assert_eq!(graph.nodes_by_label(0), &[0]);
         assert_eq!(graph.nodes_by_label(1), &[1, 3]);
         assert_eq!(graph.nodes_by_label(2), &[2, 4]);
+    }
+
+    #[cfg(feature = "neighbor-label-frequency")]
+    #[test]
+    fn neighbor_label_frequencies() {
+        let graph = "
+        |(n0:L0),
+        |(n1:L1),
+        |(n2:L2),
+        |(n3:L1),
+        |(n4:L2),
+        |(n0)-->(n1),
+        |(n0)-->(n2),
+        |(n0)-->(n4),
+        |(n1)-->(n2),
+        |(n1)-->(n3),
+        |(n2)-->(n4),
+        |(n3)-->(n4)
+        |"
+        .trim_margin()
+        .unwrap()
+        .parse::<GdlGraph>()
+        .unwrap();
+
+        assert_eq!(graph.neighbor_label_frequency(0).get(&0), None);
+        assert_eq!(graph.neighbor_label_frequency(0).get(&1), Some(&1));
+        assert_eq!(graph.neighbor_label_frequency(0).get(&2), Some(&2));
+        assert_eq!(graph.neighbor_label_frequency(4).get(&2), Some(&1));
+        assert_eq!(graph.neighbor_label_frequency(4).get(&1), Some(&1));
+        assert_eq!(graph.neighbor_label_frequency(4).get(&4), None);
     }
 }
