@@ -1,21 +1,8 @@
-use cfg_if::cfg_if;
-
 use crate::Graph;
 
 use super::Candidates;
 
 pub fn nlf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
-    cfg_if! {
-        if #[cfg(feature = "neighbor-label-frequency")] {
-            nlf_filter_(data_graph, query_graph)
-        } else {
-            super::ldf_filter(data_graph, query_graph)
-        }
-    }
-}
-
-#[cfg(feature = "neighbor-label-frequency")]
-fn nlf_filter_(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates> {
     let mut candidates = Candidates::from((data_graph, query_graph));
 
     for query_node in 0..query_graph.node_count() {

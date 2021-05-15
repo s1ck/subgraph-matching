@@ -1,11 +1,12 @@
 use atoi::FromRadix10;
+use core::panic;
 use std::{
     collections::HashMap, convert::TryFrom, fmt::Display, fs::File, io::Read, ops::Deref,
     str::FromStr, time::Instant,
 };
 use std::{fmt::Write, path::Path};
 
-use crate::Error;
+use crate::{Config, Error, Filter};
 
 use linereader::LineReader;
 
@@ -22,8 +23,7 @@ pub struct Graph {
     max_label: usize,
     max_label_frequency: usize,
     label_frequency: HashMap<usize, usize>,
-    #[cfg(feature = "neighbor-label-frequency")]
-    neighbor_label_frequencies: Box<[HashMap<usize, usize>]>,
+    neighbor_label_frequencies: Option<Box<[HashMap<usize, usize>]>>,
 }
 
 impl Graph {
@@ -75,9 +75,11 @@ impl Graph {
         self.max_label_frequency
     }
 
-    #[cfg(feature = "neighbor-label-frequency")]
     pub fn neighbor_label_frequency(&self, node: usize) -> &HashMap<usize, usize> {
-        &self.neighbor_label_frequencies[node]
+        match &self.neighbor_label_frequencies {
+            Some(nlfs) => &nlfs[node],
+            None => panic!("Neighbor label frequencies have not been loaded."),
+        }
     }
 }
 
@@ -101,7 +103,10 @@ impl FromStr for Graph {
     fn from_str(input: &str) -> Result<Self, Error> {
         let reader = LineReader::new(input.as_bytes());
         let parse_graph = ParseGraph::try_from(reader)?;
-        Ok(Graph::from(parse_graph))
+        Ok(Graph::from((
+            parse_graph,
+            LoadConfig::with_neighbor_label_frequency(),
+        )))
     }
 }
 
@@ -271,7 +276,6 @@ impl ParseGraph {
         (nodes, offsets)
     }
 
-    #[cfg(feature = "neighbor-label-frequency")]
     fn neighbor_label_frequencies(&self) -> Vec<HashMap<usize, usize>> {
         let mut nlfs = Vec::with_capacity(self.node_count);
 
@@ -296,16 +300,19 @@ impl ParseGraph {
     }
 }
 
-impl From<ParseGraph> for Graph {
-    fn from(mut parse_graph: ParseGraph) -> Self {
+impl From<(ParseGraph, LoadConfig)> for Graph {
+    fn from((mut parse_graph, load_config): (ParseGraph, LoadConfig)) -> Self {
         parse_graph.sort_neighbors();
         let max_label_frequency = parse_graph.max_label_frequency();
         let label_count = parse_graph.label_count();
 
         let (nodes, offsets) = parse_graph.label_index();
 
-        #[cfg(feature = "neighbor-label-frequency")]
-        let node_label_frequencies = parse_graph.neighbor_label_frequencies();
+        let neighbor_label_frequencies = if load_config.neighbor_label_frequency {
+            Some(parse_graph.neighbor_label_frequencies().into_boxed_slice())
+        } else {
+            None
+        };
 
         Self {
             node_count: parse_graph.node_count,
@@ -320,8 +327,7 @@ impl From<ParseGraph> for Graph {
             max_label: parse_graph.max_label,
             max_label_frequency,
             label_frequency: parse_graph.label_frequency,
-            #[cfg(feature = "neighbor-label-frequency")]
-            neighbor_label_frequencies: node_label_frequencies.into_boxed_slice(),
+            neighbor_label_frequencies,
         }
     }
 }
@@ -399,7 +405,39 @@ impl FromStr for GdlGraph {
     }
 }
 
-pub fn parse(path: &Path) -> Result<Graph, Error> {
+#[derive(Clone, Copy)]
+pub struct LoadConfig {
+    neighbor_label_frequency: bool,
+}
+
+impl LoadConfig {
+    pub fn with_neighbor_label_frequency() -> Self {
+        Self {
+            neighbor_label_frequency: true,
+            ..Self::default()
+        }
+    }
+}
+
+impl Default for LoadConfig {
+    fn default() -> Self {
+        LoadConfig {
+            neighbor_label_frequency: false,
+        }
+    }
+}
+
+impl From<Config> for LoadConfig {
+    fn from(config: Config) -> Self {
+        let neighbor_label_frequency = config.filter == Filter::Nlf;
+
+        LoadConfig {
+            neighbor_label_frequency,
+        }
+    }
+}
+
+pub fn load(path: &Path, load_config: LoadConfig) -> Result<Graph, Error> {
     println!("Reading from: {:?}", path);
     let start = Instant::now();
     let file = File::open(path)?;
@@ -408,7 +446,7 @@ pub fn parse(path: &Path) -> Result<Graph, Error> {
     let parse_graph = ParseGraph::try_from(LineReader::new(file))?;
     println!("Parsing graph: {:?}", start.elapsed());
     let start = Instant::now();
-    let graph = Graph::from(parse_graph);
+    let graph = Graph::from((parse_graph, load_config));
     println!("Building graph: {:?}", start.elapsed());
     Ok(graph)
 }
@@ -533,7 +571,6 @@ mod tests {
         assert_eq!(graph.nodes_by_label(2), &[2, 4]);
     }
 
-    #[cfg(feature = "neighbor-label-frequency")]
     #[test]
     fn neighbor_label_frequencies() {
         let graph = "

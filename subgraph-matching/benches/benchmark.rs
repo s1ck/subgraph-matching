@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use subgraph_matching::{
     find,
-    graph::{parse, Graph},
+    graph::{load, Graph, LoadConfig},
     Config, Enumeration, Filter, Order,
 };
 
@@ -16,9 +16,9 @@ const QUERY_PATH: &[&str] = &[
     "query_dense_16_2.graph",
 ];
 
-fn graphs() -> (Graph, Graph) {
-    let data_graph = parse(&HPRD_PATH.iter().collect::<PathBuf>()).unwrap();
-    let query_graph = parse(&QUERY_PATH.iter().collect::<PathBuf>()).unwrap();
+fn graphs(load_config: LoadConfig) -> (Graph, Graph) {
+    let data_graph = load(&HPRD_PATH.iter().collect::<PathBuf>(), load_config).unwrap();
+    let query_graph = load(&QUERY_PATH.iter().collect::<PathBuf>(), load_config).unwrap();
     (data_graph, query_graph)
 }
 
@@ -28,7 +28,7 @@ fn run_find(data_graph: &Graph, query_graph: &Graph, config: Config) -> usize {
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let graphs = graphs();
+    let graphs = graphs(LoadConfig::with_neighbor_label_frequency());
 
     let mut group = c.benchmark_group("find");
 

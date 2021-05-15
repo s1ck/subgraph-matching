@@ -16,9 +16,6 @@ linereader = "0.4.0"
 pico-args = "0.4.0"
 thiserror = "1.0.24"
 
-[features]
-neighbor-label-frequency = []
-
 [dev-dependencies]
 criterion = "0.3"
 trim-margin = "0.1.0"

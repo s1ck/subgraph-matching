@@ -11,7 +11,11 @@ The corresponding [paper](https://dl.acm.org/doi/10.1145/3318464.3380581) was pu
 MIT
 */
 #![allow(dead_code)]
-use subgraph_matching::*;
+use subgraph_matching::{
+    enumerate, filter,
+    graph::{self, LoadConfig},
+    order, Filter,
+};
 
 use std::time::Instant;
 
@@ -20,13 +24,27 @@ use eyre::Result;
 fn main() -> Result<()> {
     let args = cli::main()?;
 
-    let start = Instant::now();
+    let load_config = if args.filter == Filter::Nlf {
+        LoadConfig::with_neighbor_label_frequency()
+    } else {
+        LoadConfig::default()
+    };
+
+    let loading = Instant::now();
+    let total = Instant::now();
 
     println!("------");
-    let query_graph = measure("Load query graph", || graph::parse(&args.query_graph))?;
+    let query_graph = measure("Load query graph", || {
+        graph::load(&args.query_graph, load_config)
+    })?;
     println!("------");
-    let data_graph = measure("Load data graph", || graph::parse(&args.data_graph))?;
+    let data_graph = measure("Load data graph", || {
+        graph::load(&args.data_graph, load_config)
+    })?;
     println!("------");
+
+    let loading = loading.elapsed();
+    let matching = Instant::now();
 
     println!("Query Graph Meta Information:\n{}", query_graph);
     println!("Data Graph Meta Information:\n{}", data_graph);
@@ -57,7 +75,9 @@ fn main() -> Result<()> {
     println!("Embedding count = {}", embedding_count);
     println!("------");
 
-    println!("Total runtime = {:?}", start.elapsed());
+    println!("Loading time = {:?}", loading);
+    println!("Matching time = {:?}", matching.elapsed());
+    println!("Total runtime = {:?}", total.elapsed());
 
     Ok(())
 }

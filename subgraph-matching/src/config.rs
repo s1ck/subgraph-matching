@@ -1,18 +1,18 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Filter {
     Ldf, // label-degree-filter
     Gql, // graphql-filter
     Nlf, // neighbor-label-frequency-filter
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Order {
     Gql,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Enumeration {
     Gql,
 }

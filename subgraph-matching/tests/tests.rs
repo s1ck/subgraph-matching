@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 use subgraph_matching::{
     find,
-    graph::{parse, Graph},
+    graph::{load, Graph, LoadConfig},
     Config, Enumeration, Filter, Order,
 };
 
@@ -10,16 +10,16 @@ const HPRD_PATH: &[&str] = &[CRATE_ROOT, "resources", "data_graph", "HPRD.graph"
 const QUERY_PATH: &[&str] = &[CRATE_ROOT, "resources", "query_graph"];
 const EXPECTED_COUNTS: &[&str] = &[CRATE_ROOT, "resources", "expected_output.res"];
 
-fn data_graph() -> Graph {
-    parse(&HPRD_PATH.iter().collect::<PathBuf>()).unwrap()
+fn data_graph(load_config: LoadConfig) -> Graph {
+    load(&HPRD_PATH.iter().collect::<PathBuf>(), load_config).unwrap()
 }
 
-fn query_graphs() -> impl Iterator<Item = (String, Graph)> {
+fn query_graphs(load_config: LoadConfig) -> impl Iterator<Item = (String, Graph)> {
     let path = QUERY_PATH.iter().collect::<PathBuf>();
     std::fs::read_dir(path)
         .unwrap()
         .map(|path| path.unwrap())
-        .map(|path| {
+        .map(move |path| {
             (
                 path.file_name()
                     .into_string()
@@ -28,7 +28,7 @@ fn query_graphs() -> impl Iterator<Item = (String, Graph)> {
                     .next()
                     .unwrap()
                     .to_string(),
-                parse(&path.path()).unwrap(),
+                load(&path.path(), load_config).unwrap(),
             )
         })
 }
@@ -63,13 +63,13 @@ fn filter_nlf_order_gql_enumeration_gql() {
 }
 
 fn assert_expected_counts(config: Config) {
-    let data_graph = data_graph();
+    let data_graph = data_graph(config.into());
     let expected_counts = expected_counts();
 
     assert_eq!(data_graph.node_count(), 9460);
     assert_eq!(data_graph.relationship_count(), 34998);
 
-    for (query_file, query_graph) in query_graphs() {
+    for (query_file, query_graph) in query_graphs(config.into()) {
         let actual_count = find(&data_graph, &query_graph, config);
         let expected_count = expected_counts.get(&query_file).unwrap();
         assert_eq!(actual_count, *expected_count)
