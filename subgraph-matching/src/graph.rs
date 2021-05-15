@@ -414,7 +414,6 @@ impl LoadConfig {
     pub fn with_neighbor_label_frequency() -> Self {
         Self {
             neighbor_label_frequency: true,
-            ..Self::default()
         }
     }
 }

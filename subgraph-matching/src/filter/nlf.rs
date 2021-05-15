@@ -18,10 +18,7 @@ pub fn nlf_filter(data_graph: &Graph, query_graph: &Graph) -> Option<Candidates>
                     let mut is_valid = true;
 
                     for (query_label, query_label_count) in query_nlf.iter() {
-                        is_valid = match data_nlf.get(query_label) {
-                            Some(data_label_count) if data_label_count >= query_label_count => true,
-                            _ => false,
-                        };
+                        is_valid = matches!(data_nlf.get(query_label), Some(data_label_count) if data_label_count >= query_label_count);
                     }
 
                     if is_valid {
