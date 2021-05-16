@@ -22,42 +22,45 @@ pub fn coreness(graph: &Graph) -> Vec<usize> {
     let mut position = vec![0_usize; node_count];
 
     // degree histogram
-    let mut degree_bin = vec![0; max_degree + 1];
-    // offset in nodes array according to degree
-    let mut offset = vec![0; max_degree + 1];
+    let mut degree_hist = vec![0; max_degree + 1];
 
+    // compute histogram
     for (node, degree) in core_table.iter_mut().enumerate() {
         *degree = graph.degree(node);
-        degree_bin[*degree] += 1;
+        degree_hist[*degree] += 1;
     }
 
-    let mut start = 0;
-    for degree in 0..=max_degree {
-        offset[degree] = start;
-        start += degree_bin[degree];
+    // compute offsets from histogram
+    let mut offset = 0;
+    for count in degree_hist.iter_mut() {
+        let temp = *count;
+        *count = offset;
+        offset += temp;
     }
 
+    // sort nodes by degree (corrupts histogram)
     for node in 0..node_count {
         let degree = graph.degree(node);
-        position[node] = offset[degree];
+        position[node] = degree_hist[degree];
         nodes[position[node]] = node;
-        offset[degree] += 1;
+        degree_hist[degree] += 1;
     }
 
+    // correct histogram
     for degree in (1..=max_degree).rev() {
-        offset[degree] = offset[degree - 1];
+        degree_hist[degree] = degree_hist[degree - 1];
     }
-    offset[0] = 0;
+    degree_hist[0] = 0;
 
     for i in 0..node_count {
         let u = nodes[i];
         for &v in graph.neighbors(u) {
             if core_table[v] > core_table[u] {
-                // Get the position and node which has the same degree
-                // and is positioned at the start of the nodes array.
+                // Get the first node with the same degree at the
+                // beginning of the offset in the nodes array.
                 let degree_v = core_table[v];
                 let position_v = position[v];
-                let position_w = offset[degree_v];
+                let position_w = degree_hist[degree_v];
                 let w = nodes[position_w];
 
                 if v != w {
@@ -68,7 +71,7 @@ pub fn coreness(graph: &Graph) -> Vec<usize> {
                     nodes[position_w] = v;
                 }
 
-                offset[degree_v] += 1;
+                degree_hist[degree_v] += 1;
                 core_table[v] -= 1;
             }
         }
