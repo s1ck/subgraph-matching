@@ -17,6 +17,7 @@ pub mod config;
 pub mod enumerate;
 pub mod filter;
 pub mod graph;
+pub mod graph_ops;
 pub mod order;
 
 use std::io;
