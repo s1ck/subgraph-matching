@@ -2,10 +2,10 @@ use core::panic;
 use graph::input::dotgraph::DotGraph;
 use graph::prelude::{Graph as OtherGraph, *};
 use graph::UndirectedNodeLabeledCsrGraph;
+use std::path::Path;
 use std::{
     collections::HashMap, convert::TryFrom, fmt::Display, ops::Deref, str::FromStr, time::Instant,
 };
-use std::{fmt::Write, path::Path};
 
 use crate::{Config, Error, Filter};
 
@@ -122,61 +122,8 @@ impl FromStr for GdlGraph {
     type Err = Error;
 
     fn from_str(gdl: &str) -> Result<Self, Error> {
-        fn degree(gdl_graph: &gdl::Graph, node: &gdl::graph::Node) -> usize {
-            let mut degree = 0;
-
-            for rel in gdl_graph.relationships() {
-                if rel.source() == node.variable() {
-                    degree += 1;
-                }
-                if rel.target() == node.variable() {
-                    degree += 1;
-                }
-            }
-            degree
-        }
-
-        let gdl_graph = gdl.parse::<gdl::Graph>()?;
-
-        let header = format!(
-            "t {} {}",
-            gdl_graph.node_count(),
-            gdl_graph.relationship_count()
-        );
-
-        let mut nodes_string = String::from("");
-
-        let mut sorted_nodes = gdl_graph.nodes().collect::<Vec<_>>();
-        sorted_nodes.sort_by_key(|node| node.id());
-
-        for node in sorted_nodes {
-            let id = node.id();
-            let label = node.labels().next().expect("Single label expected");
-            let degree = degree(&gdl_graph, node);
-            let _ = writeln!(nodes_string, "v {} {} {}", id, &label[1..], degree);
-        }
-
-        let mut rels_string = String::from("");
-
-        let mut sorted_rels = gdl_graph.relationships().collect::<Vec<_>>();
-        sorted_rels.sort_by_key(|rel| (rel.source(), rel.target()));
-
-        for rel in sorted_rels {
-            let source_id = gdl_graph
-                .get_node(rel.source())
-                .expect("Source expected")
-                .id();
-            let target_id = gdl_graph
-                .get_node(rel.target())
-                .expect("Target expected")
-                .id();
-            let _ = writeln!(rels_string, "e {} {}", source_id, target_id);
-        }
-
-        let graph = format!("{}\n{}{}", header, nodes_string, rels_string)
-            .parse::<Graph>()
-            .unwrap();
-
+        let csr_graph: CsrGraph = GraphBuilder::new().gdl_str::<usize, _>(gdl).build()?;
+        let graph = Graph::from((csr_graph, LoadConfig::with_neighbor_label_frequency()));
         Ok(GdlGraph(graph))
     }
 }
@@ -216,18 +163,19 @@ pub fn load(path: &Path, load_config: LoadConfig) -> Result<Graph, Error> {
     println!("Reading from: {:?}", path);
     let start = Instant::now();
     println!("Preparing input: {:?}", start.elapsed());
-    let start = Instant::now();
 
+    let start = Instant::now();
     let csr_graph: CsrGraph = GraphBuilder::new()
         .csr_layout(CsrLayout::Sorted)
         .file_format(graph::input::dotgraph::DotGraphInput::default())
         .path(path)
         .build()?;
-
     println!("Parsing graph: {:?}", start.elapsed());
+
     let start = Instant::now();
     let graph = Graph::from((csr_graph, load_config));
     println!("Building graph: {:?}", start.elapsed());
+
     Ok(graph)
 }
 
