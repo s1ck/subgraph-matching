@@ -13,7 +13,7 @@ atoi = "0.4.0"
 cfg-if = "1.0.0"
 delegate = "0.6.1"
 gdl = "0.2.4"
-graph = { path = "../../graph" }
+graph = "0.1.4"
 linereader = "0.4.0"
 pico-args = "0.4.0"
 thiserror = "1.0.24"
