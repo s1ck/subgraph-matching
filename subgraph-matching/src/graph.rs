@@ -1,8 +1,9 @@
-use atoi::FromRadix10;
 use core::panic;
+use graph::input::dotgraph::DotGraph;
+use graph::prelude::{Graph as OtherGraph, *};
+use graph::UndirectedNodeLabeledCsrGraph;
 use std::{
-    collections::HashMap, convert::TryFrom, fmt::Display, fs::File, io::Read, ops::Deref,
-    str::FromStr, time::Instant,
+    collections::HashMap, convert::TryFrom, fmt::Display, ops::Deref, str::FromStr, time::Instant,
 };
 use std::{fmt::Write, path::Path};
 
@@ -10,69 +11,31 @@ use crate::{Config, Error, Filter};
 
 use linereader::LineReader;
 
+type CsrGraph = UndirectedNodeLabeledCsrGraph<usize, usize>;
+
 pub struct Graph {
-    node_count: usize,
-    relationship_count: usize,
-    label_count: usize,
-    labels: Box<[usize]>,
-    offsets: Box<[usize]>,
-    neighbors: Box<[usize]>,
-    label_index: Box<[usize]>,
-    label_index_offsets: Box<[usize]>,
-    max_degree: usize,
-    max_label: usize,
-    max_label_frequency: usize,
-    label_frequency: HashMap<usize, usize>,
+    graph: CsrGraph,
     neighbor_label_frequencies: Option<Box<[HashMap<usize, usize>]>>,
 }
 
 impl Graph {
-    pub fn node_count(&self) -> usize {
-        self.node_count
-    }
-
-    pub fn relationship_count(&self) -> usize {
-        self.relationship_count
-    }
-
-    pub fn degree(&self, node: usize) -> usize {
-        self.offsets[node + 1] - self.offsets[node]
-    }
-
-    pub fn label(&self, node: usize) -> usize {
-        self.labels[node]
-    }
-
-    pub fn neighbors(&self, node: usize) -> &[usize] {
-        let from = self.offsets[node];
-        let to = self.offsets[node + 1];
-        &self.neighbors[from..to]
+    delegate::delegate! {
+        to self.graph {
+            pub fn node_count(&self) -> usize;
+            pub fn edge_count(&self) -> usize;
+            pub fn degree(&self, node: usize) -> usize;
+            pub fn max_degree(&self) -> usize;
+            pub fn label(&self, node: usize) -> usize;
+            pub fn neighbors(&self, node: usize) -> &[usize];
+            pub fn nodes_by_label(&self, label: usize) -> &[usize];
+            pub fn label_count(&self) -> usize;
+            pub fn max_label(&self) -> usize;
+            pub fn max_label_frequency(&self) -> usize;
+        }
     }
 
     pub fn exists(&self, source: usize, target: usize) -> bool {
         self.neighbors(source).binary_search(&target).is_ok()
-    }
-
-    pub fn nodes_by_label(&self, label: usize) -> &[usize] {
-        let from = self.label_index_offsets[label];
-        let to = self.label_index_offsets[label + 1];
-        &self.label_index[from..to]
-    }
-
-    pub fn label_count(&self) -> usize {
-        self.label_count
-    }
-
-    pub fn max_degree(&self) -> usize {
-        self.max_degree
-    }
-
-    pub fn max_label(&self) -> usize {
-        self.max_label
-    }
-
-    pub fn max_label_frequency(&self) -> usize {
-        self.max_label_frequency
     }
 
     pub fn neighbor_label_frequency(&self, node: usize) -> &HashMap<usize, usize> {
@@ -88,11 +51,11 @@ impl Display for Graph {
         write!(
             f,
             "|V|: {}, |E|: {}, |Σ|: {}\nMax Degree: {}, Max Label Frequency: {}",
-            self.node_count,
-            self.relationship_count,
-            self.label_count,
-            self.max_degree,
-            self.max_label_frequency
+            self.node_count(),
+            self.edge_count(),
+            self.label_count(),
+            self.max_degree(),
+            self.max_label_frequency()
         )
     }
 }
@@ -102,234 +65,47 @@ impl FromStr for Graph {
 
     fn from_str(input: &str) -> Result<Self, Error> {
         let reader = LineReader::new(input.as_bytes());
-        let parse_graph = ParseGraph::try_from(reader)?;
+        let dot_graph: DotGraph<usize, usize> = DotGraph::try_from(reader)?;
+        let csr_graph: CsrGraph = CsrGraph::from((dot_graph, CsrLayout::Sorted));
+
         Ok(Graph::from((
-            parse_graph,
+            csr_graph,
             LoadConfig::with_neighbor_label_frequency(),
         )))
     }
 }
 
-struct ParseGraph {
-    node_count: usize,
-    relationship_count: usize,
-    labels: Vec<usize>,
-    offsets: Vec<usize>,
-    neighbors: Vec<usize>,
-    max_degree: usize,
-    max_label: usize,
-    label_frequency: HashMap<usize, usize>,
-}
-
-impl<R> TryFrom<LineReader<R>> for ParseGraph
-where
-    R: Read,
-{
-    type Error = Error;
-
-    fn try_from(mut lines: LineReader<R>) -> Result<Self, Error> {
-        let mut header = lines.next_line().expect("missing header line")?;
-
-        // skip "t" char and white space
-        header = &header[2..];
-        let (node_count, used) = usize::from_radix_10(header);
-        header = &header[used + 1..];
-        let (relationship_count, _) = usize::from_radix_10(&header);
-
-        let mut labels = Vec::<usize>::with_capacity(node_count);
-        let mut offsets = Vec::<usize>::with_capacity(node_count + 1);
-        // undirected
-        let mut neighbors = vec![0; relationship_count * 2];
-
-        offsets.push(0);
-
-        let mut max_degree = 0;
-        let mut max_label = 0;
-        let mut label_frequency = HashMap::<usize, usize>::new();
-
-        let mut batch = lines.next_batch().expect("missing data")?;
-
-        // read nodes
-        //
-        // Unlike the C++ impl, this assumes the
-        // input to be sorted by node id
-        while offsets.len() <= node_count {
-            if batch.is_empty() {
-                batch = lines.next_batch().expect("missing data")?;
-            }
-
-            // skip "v" char and white space
-            batch = &batch[2..];
-            // skip node id since input is always sorted by node id
-            let (_, used) = usize::from_radix_10(batch);
-            batch = &batch[used + 1..];
-            let (label, used) = usize::from_radix_10(batch);
-            batch = &batch[used + 1..];
-            let (degree, used) = usize::from_radix_10(batch);
-            batch = &batch[used + 1..];
-
-            labels.push(label);
-            offsets.push(offsets[offsets.len() - 1] + degree);
-
-            if degree > max_degree {
-                max_degree = degree;
-            }
-
-            let frequency = label_frequency.entry(label).or_insert_with(|| {
-                if label > max_label {
-                    max_label = label;
-                }
-                0
-            });
-            *frequency += 1;
-        }
-
-        // stores the next offset to insert for each node
-        let mut next_offset = vec![0; node_count];
-
-        // read (undirected) relationships
-        //
-        // Unlike the C++ impl this assumes the
-        // input to be sorted by source and target
-        for _ in 0..relationship_count {
-            if batch.is_empty() {
-                batch = lines.next_batch().expect("missing data")?;
-            }
-            // skip "e" char and white space
-            batch = &batch[2..];
-            let (source, used) = usize::from_radix_10(batch);
-            batch = &batch[used + 1..];
-            let (target, used) = usize::from_radix_10(batch);
-            batch = &batch[used + 1..];
-
-            // add as outgoing to source adjacency list
-            let offset = offsets[source] + next_offset[source];
-            neighbors[offset] = target;
-
-            // add as incoming to target adjacency list
-            let offset = offsets[target] + next_offset[target];
-            neighbors[offset] = source;
-
-            next_offset[source] += 1;
-            next_offset[target] += 1;
-        }
-
-        Ok(Self {
-            node_count,
-            relationship_count,
-            labels,
-            offsets,
-            neighbors,
-            max_degree,
-            max_label,
-            label_frequency,
-        })
-    }
-}
-
-impl ParseGraph {
-    fn sort_neighbors(&mut self) {
-        for node in 0..self.node_count {
-            let from = self.offsets[node];
-            let to = self.offsets[node + 1];
-            self.neighbors[from..to].sort_unstable();
-        }
-    }
-
-    fn label_count(&self) -> usize {
-        if self.label_frequency.len() > self.max_label + 1 {
-            self.label_frequency.len()
-        } else {
-            self.max_label + 1
-        }
-    }
-
-    fn max_label_frequency(&self) -> usize {
-        self.label_frequency
-            .values()
-            .max()
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    fn label_index(&self) -> (Vec<usize>, Vec<usize>) {
-        let node_count = self.node_count;
-        let label_count = self.label_count();
-
-        let mut nodes = vec![0; node_count];
-        let mut offsets = Vec::<usize>::with_capacity(label_count + 1);
-        offsets.push(0);
-
-        let mut total = 0;
-
-        for label in 0..label_count {
-            offsets.push(total);
-            total += self.label_frequency.get(&label).unwrap_or(&0);
-        }
-
-        for (node, &label) in self.labels.iter().enumerate().take(node_count) {
-            let offset = offsets[label + 1];
-            nodes[offset] = node;
-            offsets[label + 1] += 1;
-        }
-
-        (nodes, offsets)
-    }
-
-    fn neighbor_label_frequencies(&self) -> Vec<HashMap<usize, usize>> {
-        let mut nlfs = Vec::with_capacity(self.node_count);
-
-        for node in 0..self.node_count {
-            let mut nlf = HashMap::<usize, usize>::new();
-
-            for &target in self
-                .neighbors
-                .iter()
-                .take(self.offsets[node + 1])
-                .skip(self.offsets[node])
-            {
-                let target_label = self.labels[target];
-                let count = nlf.entry(target_label).or_insert(0);
-                *count += 1;
-            }
-
-            nlfs.push(nlf);
-        }
-
-        nlfs
-    }
-}
-
-impl From<(ParseGraph, LoadConfig)> for Graph {
-    fn from((mut parse_graph, load_config): (ParseGraph, LoadConfig)) -> Self {
-        parse_graph.sort_neighbors();
-        let max_label_frequency = parse_graph.max_label_frequency();
-        let label_count = parse_graph.label_count();
-
-        let (nodes, offsets) = parse_graph.label_index();
-
+impl From<(CsrGraph, LoadConfig)> for Graph {
+    fn from((graph, load_config): (CsrGraph, LoadConfig)) -> Self {
         let neighbor_label_frequencies = if load_config.neighbor_label_frequency {
-            Some(parse_graph.neighbor_label_frequencies().into_boxed_slice())
+            Some(neighbor_label_frequencies(&graph).into_boxed_slice())
         } else {
             None
         };
 
         Self {
-            node_count: parse_graph.node_count,
-            relationship_count: parse_graph.relationship_count,
-            label_count,
-            labels: parse_graph.labels.into_boxed_slice(),
-            offsets: parse_graph.offsets.into_boxed_slice(),
-            neighbors: parse_graph.neighbors.into_boxed_slice(),
-            label_index: nodes.into_boxed_slice(),
-            label_index_offsets: offsets.into_boxed_slice(),
-            max_degree: parse_graph.max_degree,
-            max_label: parse_graph.max_label,
-            max_label_frequency,
-            label_frequency: parse_graph.label_frequency,
+            graph,
             neighbor_label_frequencies,
         }
     }
+}
+
+fn neighbor_label_frequencies(graph: &CsrGraph) -> Vec<HashMap<usize, usize>> {
+    let mut nlfs = Vec::with_capacity(graph.node_count());
+
+    for node in 0..graph.node_count() {
+        let mut nlf = HashMap::<usize, usize>::new();
+
+        for &target in graph.neighbors(node) {
+            let target_label = graph.label(target);
+            let count = nlf.entry(target_label).or_insert(0);
+            *count += 1;
+        }
+
+        nlfs.push(nlf);
+    }
+
+    nlfs
 }
 
 pub struct GdlGraph(Graph);
@@ -439,13 +215,18 @@ impl From<Config> for LoadConfig {
 pub fn load(path: &Path, load_config: LoadConfig) -> Result<Graph, Error> {
     println!("Reading from: {:?}", path);
     let start = Instant::now();
-    let file = File::open(path)?;
     println!("Preparing input: {:?}", start.elapsed());
     let start = Instant::now();
-    let parse_graph = ParseGraph::try_from(LineReader::new(file))?;
+
+    let csr_graph: CsrGraph = GraphBuilder::new()
+        .csr_layout(CsrLayout::Sorted)
+        .file_format(graph::input::dotgraph::DotGraphInput::default())
+        .path(path)
+        .build()?;
+
     println!("Parsing graph: {:?}", start.elapsed());
     let start = Instant::now();
-    let graph = Graph::from((parse_graph, load_config));
+    let graph = Graph::from((csr_graph, load_config));
     println!("Building graph: {:?}", start.elapsed());
     Ok(graph)
 }
@@ -477,7 +258,7 @@ mod tests {
         let graph = graph.parse::<Graph>().unwrap();
 
         assert_eq!(graph.node_count(), 5);
-        assert_eq!(graph.relationship_count(), 6);
+        assert_eq!(graph.edge_count(), 6);
         assert_eq!(graph.label_count(), 3);
 
         assert_eq!(graph.max_label(), 2);
@@ -534,7 +315,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(graph.node_count(), 5);
-        assert_eq!(graph.relationship_count(), 6);
+        assert_eq!(graph.edge_count(), 6);
         assert_eq!(graph.label_count(), 3);
 
         assert_eq!(graph.max_label(), 2);

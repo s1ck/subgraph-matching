@@ -22,8 +22,8 @@ pub mod order;
 
 use std::io;
 
+pub use crate::graph::Graph;
 pub use config::{Config, Enumeration, Filter, Order};
-pub use graph::Graph;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -37,6 +37,11 @@ pub enum Error {
     ParseGdlGraph {
         #[from]
         source: gdl::graph::GraphHandlerError,
+    },
+    #[error("error while creating graph")]
+    CreateGraph {
+        #[from]
+        source: ::graph::Error,
     },
 }
 
