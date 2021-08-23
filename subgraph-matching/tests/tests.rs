@@ -67,7 +67,7 @@ fn assert_expected_counts(config: Config) {
     let expected_counts = expected_counts();
 
     assert_eq!(data_graph.node_count(), 9460);
-    assert_eq!(data_graph.relationship_count(), 34998);
+    assert_eq!(data_graph.edge_count(), 34998);
 
     for (query_file, query_graph) in query_graphs(config.into()) {
         let actual_count = find(&data_graph, &query_graph, config);
