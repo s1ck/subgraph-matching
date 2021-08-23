@@ -75,7 +75,7 @@ where
 
     match config.enumeration {
         Enumeration::Gql => {
-            enumerate::gql_with(&data_graph, &query_graph, &candidates, &order, action)
+            enumerate::gql_with(data_graph, query_graph, &candidates, &order, action)
         }
     }
 }
