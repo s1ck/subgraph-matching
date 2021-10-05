@@ -12,5 +12,5 @@ license = "MIT"
 
 [dependencies]
 eyre = "0.6.5"
-pico-args = "0.4.0"
+pico-args = "0.4.2"
 subgraph-matching = { path = "subgraph-matching" }
