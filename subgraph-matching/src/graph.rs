@@ -128,7 +128,7 @@ impl FromStr for GdlGraph {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct LoadConfig {
     neighbor_label_frequency: bool,
 }
@@ -137,14 +137,6 @@ impl LoadConfig {
     pub fn with_neighbor_label_frequency() -> Self {
         Self {
             neighbor_label_frequency: true,
-        }
-    }
-}
-
-impl Default for LoadConfig {
-    fn default() -> Self {
-        LoadConfig {
-            neighbor_label_frequency: false,
         }
     }
 }
