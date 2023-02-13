@@ -9,17 +9,19 @@ repository = "https://github.com/s1ck/subgraph-matching"
 license = "MIT"
 
 [dependencies]
-atoi = "0.4.0"
+atoi = "2.0.0"
 cfg-if = "1.0.0"
-delegate = "0.6.1"
-gdl = "0.2.6"
-graph = "0.1.5"
+delegate = "0.9.0"
+gdl = "0.2.7"
+graph_builder = { git = "https://github.com/s1ck/graph/", branch = "dotgraph-refactoring", features = ["gdl", "dotgraph"] }
+# graph_builder = { path = "/home/s1ck/Devel/Rust/graph/crates/builder", features = ["gdl", "dotgraph"] }
+
 linereader = "0.4.0"
-pico-args = "0.4.2"
-thiserror = "1.0.29"
+pico-args = "0.5.0"
+thiserror = "1.0.38"
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.4"
 trim-margin = "0.1.0"
 
 [[bench]]

@@ -1,47 +1,78 @@
 use core::panic;
-use graph::input::dotgraph::DotGraph;
-use graph::prelude::{Graph as OtherGraph, *};
-use graph::UndirectedNodeLabeledCsrGraph;
-use std::path::Path;
-use std::{
-    collections::HashMap, convert::TryFrom, fmt::Display, ops::Deref, str::FromStr, time::Instant,
+use graph_builder::prelude::dotgraph::{
+    LabelStats, NeighborLabelFrequencies, NeighborLabelFrequency, NodeLabelIndex,
 };
+use graph_builder::prelude::{Graph as OtherGraph, *};
+use std::path::Path;
+use std::{convert::TryFrom, fmt::Display, ops::Deref, str::FromStr, time::Instant};
 
 use crate::{Config, Error, Filter};
 
 use linereader::LineReader;
 
-type CsrGraph = UndirectedNodeLabeledCsrGraph<usize, usize>;
+type Id = usize;
+type Label = usize;
+
+type CsrGraph = UndirectedCsrGraph<Id, Label>;
 
 pub struct Graph {
-    graph: CsrGraph,
-    neighbor_label_frequencies: Option<Box<[HashMap<usize, usize>]>>,
+    inner: CsrGraph,
+    label_count: usize,
+    max_degree: Id,
+    max_label: Label,
+    max_label_frequency: usize,
+    neighbor_label_frequencies: Option<NeighborLabelFrequencies<Label, Id>>,
+    node_label_index: Option<NodeLabelIndex<Label, Id>>,
 }
 
 impl Graph {
     delegate::delegate! {
-        to self.graph {
-            pub fn node_count(&self) -> usize;
-            pub fn edge_count(&self) -> usize;
-            pub fn degree(&self, node: usize) -> usize;
-            pub fn max_degree(&self) -> usize;
-            pub fn label(&self, node: usize) -> usize;
-            pub fn neighbors(&self, node: usize) -> &[usize];
-            pub fn nodes_by_label(&self, label: usize) -> &[usize];
-            pub fn label_count(&self) -> usize;
-            pub fn max_label(&self) -> usize;
-            pub fn max_label_frequency(&self) -> usize;
+        to self.inner {
+            pub fn node_count(&self) -> Id;
+            pub fn edge_count(&self) -> Id;
+            pub fn degree(&self, node: Id) -> Id;
         }
+    }
+
+    pub fn neighbors(&self, node: Id) -> &[Id] {
+        self.inner.neighbors(node).as_slice()
+    }
+
+    pub fn label(&self, node: Id) -> Label {
+        *self.inner.node_value(node)
+    }
+
+    pub fn max_degree(&self) -> Id {
+        self.max_degree
+    }
+
+    pub fn label_count(&self) -> usize {
+        self.label_count
+    }
+
+    pub fn max_label(&self) -> Label {
+        self.max_label
+    }
+
+    pub fn max_label_frequency(&self) -> usize {
+        self.max_label_frequency
     }
 
     pub fn exists(&self, source: usize, target: usize) -> bool {
         self.neighbors(source).binary_search(&target).is_ok()
     }
 
-    pub fn neighbor_label_frequency(&self, node: usize) -> &HashMap<usize, usize> {
+    pub fn neighbor_label_frequency(&self, node: Id) -> NeighborLabelFrequency<Label> {
         match &self.neighbor_label_frequencies {
-            Some(nlfs) => &nlfs[node],
+            Some(nlfs) => nlfs.neighbor_frequency(node),
             None => panic!("Neighbor label frequencies have not been loaded."),
+        }
+    }
+
+    pub fn nodes_by_label(&self, label: usize) -> &[Id] {
+        match &self.node_label_index {
+            Some(index) => index.nodes(label),
+            None => panic!("Node label index has not been loaded."),
         }
     }
 }
@@ -65,47 +96,77 @@ impl FromStr for Graph {
 
     fn from_str(input: &str) -> Result<Self, Error> {
         let reader = LineReader::new(input.as_bytes());
-        let dot_graph: DotGraph<usize, usize> = DotGraph::try_from(reader)?;
-        let csr_graph: CsrGraph = CsrGraph::from((dot_graph, CsrLayout::Sorted));
+        let dot_graph: DotGraph<Id, Label> = DotGraph::try_from(reader)?;
 
-        Ok(Graph::from((
-            csr_graph,
-            LoadConfig::with_neighbor_label_frequency(),
-        )))
+        let node_count = dot_graph.node_count();
+        let label_count = dot_graph.label_count();
+        let max_label_frequency = dot_graph.max_label_frequency();
+
+        let DotGraph {
+            labels,
+            edge_list,
+            max_degree,
+            max_label,
+            label_frequency,
+        } = dot_graph;
+
+        let label_stats = LabelStats {
+            max_degree,
+            label_count,
+            max_label,
+            max_label_frequency,
+            label_frequency,
+        };
+
+        let label_index = NodeLabelIndex::from_stats(node_count, label_stats, |node| labels[node]);
+        let node_values = graph_builder::graph::csr::NodeValues::new(labels);
+        let graph = UndirectedCsrGraph::from((node_values, edge_list, CsrLayout::Sorted));
+        let frequencies = NeighborLabelFrequencies::from_graph(&graph);
+
+        let graph = Graph {
+            inner: graph,
+            label_count,
+            max_degree,
+            max_label,
+            max_label_frequency,
+            neighbor_label_frequencies: Some(frequencies),
+            node_label_index: Some(label_index),
+        };
+
+        Ok(graph)
     }
 }
 
 impl From<(CsrGraph, LoadConfig)> for Graph {
-    fn from((graph, load_config): (CsrGraph, LoadConfig)) -> Self {
+    fn from((inner, load_config): (CsrGraph, LoadConfig)) -> Self {
         let neighbor_label_frequencies = if load_config.neighbor_label_frequency {
-            Some(neighbor_label_frequencies(&graph).into_boxed_slice())
+            Some(NeighborLabelFrequencies::from_graph(&inner))
         } else {
             None
         };
 
+        let label_stats @ LabelStats {
+            max_degree,
+            label_count,
+            max_label,
+            max_label_frequency,
+            ..
+        } = LabelStats::from_graph(&inner);
+
+        let node_count = inner.node_count();
+        let label_func = |node| *inner.node_value(node);
+        let node_label_index = NodeLabelIndex::from_stats(node_count, label_stats, label_func);
+
         Self {
-            graph,
+            inner,
+            label_count,
+            max_degree,
+            max_label,
+            max_label_frequency,
             neighbor_label_frequencies,
+            node_label_index: Some(node_label_index),
         }
     }
-}
-
-fn neighbor_label_frequencies(graph: &CsrGraph) -> Vec<HashMap<usize, usize>> {
-    let mut nlfs = Vec::with_capacity(graph.node_count());
-
-    for node in 0..graph.node_count() {
-        let mut nlf = HashMap::<usize, usize>::new();
-
-        for &target in graph.neighbors(node) {
-            let target_label = graph.label(target);
-            let count = nlf.entry(target_label).or_insert(0);
-            *count += 1;
-        }
-
-        nlfs.push(nlf);
-    }
-
-    nlfs
 }
 
 pub struct GdlGraph(Graph);
@@ -122,8 +183,13 @@ impl FromStr for GdlGraph {
     type Err = Error;
 
     fn from_str(gdl: &str) -> Result<Self, Error> {
-        let csr_graph: CsrGraph = GraphBuilder::new().gdl_str::<usize, _>(gdl).build()?;
+        let csr_graph: CsrGraph = GraphBuilder::new()
+            .csr_layout(CsrLayout::Sorted)
+            .gdl_str::<Id, _>(gdl)
+            .build()?;
+
         let graph = Graph::from((csr_graph, LoadConfig::with_neighbor_label_frequency()));
+
         Ok(GdlGraph(graph))
     }
 }
@@ -159,7 +225,7 @@ pub fn load(path: &Path, load_config: LoadConfig) -> Result<Graph, Error> {
     let start = Instant::now();
     let csr_graph: CsrGraph = GraphBuilder::new()
         .csr_layout(CsrLayout::Sorted)
-        .file_format(graph::input::dotgraph::DotGraphInput::default())
+        .file_format(dotgraph::DotGraphInput::default())
         .path(path)
         .build()?;
     println!("Parsing graph: {:?}", start.elapsed());
@@ -237,11 +303,11 @@ mod tests {
     #[test]
     fn read_from_gdl() {
         let graph = "
-        |(n0:L0),
-        |(n1:L1),
-        |(n2:L2),
-        |(n3:L1),
-        |(n4:L2),
+        |(n0 { label: 0 }),
+        |(n1 { label: 1 }),
+        |(n2 { label: 2 }),
+        |(n3 { label: 1 }),
+        |(n4 { label: 2 }),
         |(n0)-->(n1),
         |(n0)-->(n2),
         |(n1)-->(n2),
@@ -294,11 +360,11 @@ mod tests {
     #[test]
     fn neighbor_label_frequencies() {
         let graph = "
-        |(n0:L0),
-        |(n1:L1),
-        |(n2:L2),
-        |(n3:L1),
-        |(n4:L2),
+        |(n0 { label: 0 }),
+        |(n1 { label: 1 }),
+        |(n2 { label: 2 }),
+        |(n3 { label: 1 }),
+        |(n4 { label: 2 }),
         |(n0)-->(n1),
         |(n0)-->(n2),
         |(n0)-->(n4),
@@ -312,11 +378,11 @@ mod tests {
         .parse::<GdlGraph>()
         .unwrap();
 
-        assert_eq!(graph.neighbor_label_frequency(0).get(&0), None);
-        assert_eq!(graph.neighbor_label_frequency(0).get(&1), Some(&1));
-        assert_eq!(graph.neighbor_label_frequency(0).get(&2), Some(&2));
-        assert_eq!(graph.neighbor_label_frequency(4).get(&2), Some(&1));
-        assert_eq!(graph.neighbor_label_frequency(4).get(&1), Some(&1));
-        assert_eq!(graph.neighbor_label_frequency(4).get(&4), None);
+        assert_eq!(graph.neighbor_label_frequency(0).get(0), None);
+        assert_eq!(graph.neighbor_label_frequency(0).get(1), Some(1));
+        assert_eq!(graph.neighbor_label_frequency(0).get(2), Some(2));
+        assert_eq!(graph.neighbor_label_frequency(4).get(2), Some(1));
+        assert_eq!(graph.neighbor_label_frequency(4).get(1), Some(1));
+        assert_eq!(graph.neighbor_label_frequency(4).get(4), None);
     }
 }
