@@ -40,11 +40,11 @@ mod tests {
     }
 
     const DATA_GRAPH_1: &str = "
-        |(n0:L0)
-        |(n1:L1)
-        |(n2:L2)
-        |(n3:L1)
-        |(n4:L4)
+        |(n0 { label: 0 })
+        |(n1 { label: 1 })
+        |(n2 { label: 2 })
+        |(n3 { label: 1 })
+        |(n4 { label: 4 })
         |(n0)-->(n1)
         |(n0)-->(n2)
         |(n1)-->(n2)
@@ -56,7 +56,9 @@ mod tests {
     #[test]
     fn test_ldf_filter() {
         let data_graph = graph(DATA_GRAPH_1);
-        let query_graph = graph("(n0:L0), (n1:L1), (n2:L2), (n0)-->(n1), (n1)-->(n2)");
+        let query_graph = graph(
+            "(n0 { label: 0 }), (n1 { label: 1 }), (n2 { label: 2 }), (n0)-->(n1), (n1)-->(n2)",
+        );
 
         assert_eq!(data_graph.nodes_by_label(0), &[0]);
         assert_eq!(data_graph.nodes_by_label(1), &[1, 3]);
@@ -77,7 +79,9 @@ mod tests {
     #[test]
     fn test_ldf_filter_invalid_label() {
         let data_graph = graph(DATA_GRAPH_1);
-        let query_graph = graph("(n0:L3), (n1:L1), (n2:L2), (n0)-->(n1), (n1)-->(n2)");
+        let query_graph = graph(
+            "(n0 { label: 3 }), (n1 { label: 1 }), (n2 { label: 2 }), (n0)-->(n1), (n1)-->(n2)",
+        );
         let candidates = ldf_filter(&data_graph, &query_graph);
         assert!(candidates.is_none())
     }
@@ -87,12 +91,12 @@ mod tests {
         let data_graph = graph(DATA_GRAPH_1);
         let query_graph = graph(
             "
-                    |(n0:L3),(n1:L1),(n2:L2)
-                    |(n0)-->(n1)
-                    |(n0)-->(n2)
-                    |(n0)-->(n2)
-                    |(n1)-->(n2)
-                    |",
+            |(n0 { label: 3}),(n1 { label: 1}),(n2 { label: 2})
+            |(n0)-->(n1)
+            |(n0)-->(n2)
+            |(n0)-->(n2)
+            |(n1)-->(n2)
+            |",
         );
         let candidates = ldf_filter(&data_graph, &query_graph);
         assert!(candidates.is_none())

@@ -179,11 +179,11 @@ mod tests {
     }
 
     const TEST_GRAPH: &str = "
-        |(n0:L0)
-        |(n1:L1)
-        |(n2:L2)
-        |(n3:L1)
-        |(n4:L2)
+        |(n0 { label: 0 })
+        |(n1 { label: 1 })
+        |(n2 { label: 2 })
+        |(n3 { label: 1 })
+        |(n4 { label: 2 })
         |(n0)-->(n1)
         |(n0)-->(n2)
         |(n1)-->(n2)
@@ -212,7 +212,9 @@ mod tests {
         let data_graph = graph(TEST_GRAPH);
         let query_graph = graph(
             "
-            |(n0:L0),(n1:L1),(n2:L2)
+            |(n0 { label: 0 })
+            |(n1 { label: 1 })
+            |(n2 { label: 2 })
             |(n0)-->(n1)
             |(n1)-->(n2)
             |",
@@ -241,7 +243,10 @@ mod tests {
         let data_graph = graph(TEST_GRAPH);
         let query_graph = graph(
             "
-            |(n0:L1),(n1:L2),(n2:L1),(n3:L2)
+            |(n0 { label: 1 })
+            |(n1 { label: 2 })
+            |(n2 { label: 1 })
+            |(n3 { label: 2 })
             |(n0)-->(n1)
             |(n0)-->(n2)
             |(n1)-->(n3)
